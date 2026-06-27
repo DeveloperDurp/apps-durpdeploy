@@ -17,6 +17,9 @@ lint:
 
 test:
   stage: test
+  before_script:
+    - go install github.com/a-h/templ/cmd/templ@latest
+    - templ generate
   script:
     - go test -v -count=1 ./...
   coverage: '/\d+\.\d+% of statements/'
