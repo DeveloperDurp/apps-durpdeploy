@@ -5,15 +5,11 @@ stages:
   - test
   - build
 
-before_script:
-  - apk add --no-cache npm make
-  - npm install
-
 lint:
   stage: lint
   script:
     - go vet ./...
-    - go fmt ./...
+    - test -z "$(gofmt -l .)"
   allow_failure: false
 
 test:
@@ -25,7 +21,7 @@ test:
 build:
   stage: build
   script:
-    - go build -o /dev/null ./cmd/server
+    - go build -o durpdeploy ./cmd/server
   artifacts:
     paths:
       - durpdeploy
