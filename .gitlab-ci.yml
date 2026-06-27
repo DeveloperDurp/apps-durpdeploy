@@ -12,6 +12,7 @@ lint:
     - templ generate
   script:
     - go vet ./...
+    - test -z "$(gofmt -l .)"
   allow_failure: false
 
 test:
