@@ -2,7 +2,9 @@ package main
 
 import (
 	"log"
+	"log/slog"
 	"net/http"
+	"os"
 
 	"durpdeploy/internal/migrate"
 	"durpdeploy/internal/repository"
@@ -11,6 +13,8 @@ import (
 )
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})))
+
 	dsn := "durpdeploy.db?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
 
 	db, err := migrate.Run(dsn)
@@ -18,14 +22,14 @@ func main() {
 		log.Fatalf("migration failed: %v", err)
 	}
 	defer db.Close()
-	log.Println("database ready")
+	slog.Info("database ready")
 
 	repo := repository.New(db)
 	broker := runner.NewLogBroker()
 	rnr := runner.New(repo, broker)
 	r := server.NewRouter(repo, rnr)
-	log.Println("Server starting on :8080")
+	slog.Info("server starting", "addr", ":8080")
 	if err := http.ListenAndServe(":8080", r); err != nil {
-		log.Fatalf("Server failed: %v", err)
+		log.Fatalf("server failed: %v", err)
 	}
 }
