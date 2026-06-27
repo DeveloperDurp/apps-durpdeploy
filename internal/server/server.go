@@ -1,0 +1,80 @@
+package server
+
+import (
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+
+	"durpdeploy/internal/handler"
+	"durpdeploy/internal/repository"
+	"durpdeploy/internal/runner"
+	"durpdeploy/static"
+)
+
+func NewRouter(repo *repository.Repository, rnr *runner.DeploymentRunner) *chi.Mux {
+	r := chi.NewRouter()
+	r.Use(middleware.Logger)
+	r.Use(handler.PanicRecoveryMiddleware)
+
+	// Serve static files from embedded assets
+	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.FS(static.Assets))))
+
+	errorHandler := handler.NewErrorHandler()
+	r.NotFound(errorHandler.NotFound)
+	r.MethodNotAllowed(errorHandler.MethodNotAllowed)
+
+	// Home page
+	indexHandler := handler.NewIndexHandler(repo)
+	r.Get("/", indexHandler.Index)
+
+	envHandler := handler.NewEnvironmentHandler(repo)
+	r.Get("/environments", envHandler.ListEnvironments)
+	r.Get("/environments/new", envHandler.NewEnvironment)
+	r.Post("/environments", envHandler.CreateEnvironment)
+	r.Get("/environments/{id}/edit", envHandler.EditEnvironment)
+	r.Put("/environments/{id}", envHandler.UpdateEnvironment)
+	r.Delete("/environments/{id}", envHandler.DeleteEnvironment)
+
+	ph := handler.NewProjectHandler(repo)
+	r.Get("/projects", ph.ListProjects)
+	r.Get("/projects/new", ph.NewProject)
+	r.Post("/projects", ph.CreateProject)
+	r.Get("/projects/{id}", ph.GetProject)
+	r.Get("/projects/{id}/edit", ph.EditProject)
+	r.Put("/projects/{id}", ph.UpdateProject)
+	r.Delete("/projects/{id}", ph.DeleteProject)
+
+	sh := handler.NewStepHandler(repo)
+	r.Get("/projects/{id}/steps", sh.ListSteps)
+	r.Get("/projects/{id}/steps/new", sh.NewStepForm)
+	r.Post("/projects/{id}/steps", sh.CreateStep)
+	r.Get("/projects/{id}/steps/{stepId}/edit", sh.EditStepForm)
+	r.Put("/projects/{id}/steps/{stepId}", sh.UpdateStep)
+	r.Delete("/projects/{id}/steps/{stepId}", sh.DeleteStep)
+	r.Patch("/projects/{id}/steps/reorder", sh.ReorderStep)
+
+	vh := handler.NewVariableHandler(repo)
+	r.Get("/projects/{id}/variables", vh.ListVariables)
+	r.Post("/projects/{id}/variables", vh.CreateVariable)
+	r.Get("/projects/{id}/variables/{varId}/edit", vh.EditVariable)
+	r.Put("/projects/{id}/variables/{varId}", vh.UpdateVariable)
+	r.Delete("/projects/{id}/variables/{varId}", vh.DeleteVariable)
+
+	rh := handler.NewReleaseHandler(repo)
+	r.Get("/projects/{id}/releases", rh.ListReleases)
+	r.Post("/projects/{id}/releases", rh.CreateRelease)
+	r.Get("/projects/{id}/releases/{releaseId}", rh.GetRelease)
+
+	dh := handler.NewDeploymentHandler(repo, rnr)
+	r.Get("/deployments", dh.ListDeployments)
+	r.Post("/deployments", dh.CreateDeployment)
+	r.Get("/deployments/{id}", dh.GetDeployment)
+	r.Get("/deployments/{id}/status", dh.GetDeploymentStatus)
+	r.Post("/deployments/{id}/cancel", dh.CancelDeployment)
+
+	lh := handler.NewLogHandler(rnr.Broker(), repo)
+	r.Get("/deployments/{id}/logs/stream", lh.StreamLogs)
+
+	return r
+}

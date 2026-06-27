@@ -1,0 +1,50 @@
+# Binaries
+durpdeploy
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+
+# Generated templ files
+*_templ.go
+
+# Node modules
+node_modules/
+package-lock.json
+package.json
+
+# Tailwind output
+static/css/output.css
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist/
+bin/
+
+# OpenCode session state
+.omo/
+.codegraph
+
+# Database files
+*.db
+*.db-shm
+*.db-wal

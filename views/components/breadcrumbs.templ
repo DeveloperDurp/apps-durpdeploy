@@ -1,0 +1,22 @@
+package components
+
+type Crumb struct {
+	Label string
+	Href  string
+}
+
+templ Breadcrumbs(crumbs []Crumb) {
+	<div class="breadcrumbs text-sm">
+		<ul>
+			for _, c := range crumbs {
+				<li>
+					if c.Href != "" {
+						<a href={ c.Href }>{ c.Label }</a>
+					} else {
+						{ c.Label }
+					}
+				</li>
+			}
+		</ul>
+	</div>
+}

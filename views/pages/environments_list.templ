@@ -1,0 +1,74 @@
+package pages
+
+import (
+	"durpdeploy/internal/db"
+	"durpdeploy/views/components"
+	"durpdeploy/views/layouts"
+	"strconv"
+)
+
+templ EnvironmentsList(envs []db.Environment, currentPath string) {
+	@layouts.Base("Environments", currentPath) {
+		@components.Breadcrumbs([]components.Crumb{
+			{Label: "Home", Href: "/"},
+			{Label: "Environments"},
+		})
+		@EnvironmentsListContent(envs)
+	}
+}
+
+templ EnvironmentsListContent(envs []db.Environment) {
+	<div class="space-y-4">
+		<div class="flex justify-between items-center">
+			<h1 class="text-3xl font-bold">Environments</h1>
+			<a href="/environments/new" class="btn btn-primary">New Environment</a>
+		</div>
+		@EnvironmentsListFragment(envs)
+	</div>
+}
+
+templ EnvironmentsListFragment(envs []db.Environment) {
+	<div id="environments-list">
+		if len(envs) == 0 {
+			<div class="card bg-base-200 p-8 text-center">
+				<p class="text-gray-400 mb-4">No environments yet. Create your first environment to define deployment targets.</p>
+				<a href="/environments/new" class="btn btn-primary">New Environment</a>
+			</div>
+		} else {
+			<table class="table table-zebra w-full">
+				<thead>
+					<tr>
+						<th>Name</th>
+						<th>Description</th>
+						<th>Tags</th>
+						<th>Actions</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, env := range envs {
+						@EnvironmentRow(env)
+					}
+				</tbody>
+			</table>
+		}
+	</div>
+}
+
+templ EnvironmentRow(env db.Environment) {
+	<tr>
+		<td>{ env.Name }</td>
+		<td>{ env.Description.String }</td>
+		<td>{ env.Tags.String }</td>
+		<td class="flex gap-2">
+			<a href={ templ.SafeURL("/environments/" + strconv.FormatInt(env.ID, 10) + "/edit") } class="btn btn-sm btn-ghost">Edit</a>
+			<button
+				hx-delete={ "/environments/" + strconv.FormatInt(env.ID, 10) }
+				hx-target="closest tr"
+				hx-swap="delete"
+				class="btn btn-sm btn-error"
+			>
+				Delete
+			</button>
+		</td>
+	</tr>
+}

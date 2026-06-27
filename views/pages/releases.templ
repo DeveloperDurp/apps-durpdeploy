@@ -1,0 +1,231 @@
+package pages
+
+import (
+	"durpdeploy/internal/db"
+	"durpdeploy/views/components"
+	"durpdeploy/views/layouts"
+	"encoding/json"
+	"fmt"
+	"strconv"
+	"time"
+)
+
+type ReleaseStep struct {
+	Name       string `json:"name"`
+	ScriptBody string `json:"script_body"`
+	SortOrder  int64  `json:"sort_order"`
+}
+
+func parseReleaseSteps(stepsJSON string) []ReleaseStep {
+	var steps []ReleaseStep
+	if err := json.Unmarshal([]byte(stepsJSON), &steps); err != nil {
+		return nil
+	}
+	return steps
+}
+
+func formatUnixTime(ts int64) string {
+	return time.Unix(ts, 0).Format("2006-01-02 15:04:05")
+}
+
+templ ReleasesPage(project db.Project, releases []db.Release, environments []db.Environment, errorMsg string, currentPath string) {
+	@layouts.Base("Releases", currentPath) {
+		@components.Breadcrumbs([]components.Crumb{
+			{Label: "Home", Href: "/"},
+			{Label: "Projects", Href: "/projects"},
+			{Label: project.Name, Href: fmt.Sprintf("/projects/%d", project.ID)},
+			{Label: "Releases"},
+		})
+		@ReleasesContent(project, releases, environments, errorMsg)
+	}
+}
+
+templ ReleasesContent(project db.Project, releases []db.Release, environments []db.Environment, errorMsg string) {
+	<div class="space-y-6">
+		<div class="flex justify-between items-center">
+			<div>
+				<h1 class="text-3xl font-bold">Releases for Project: { project.Name }</h1>
+				<a href={ fmt.Sprintf("/projects/%d", project.ID) } class="btn btn-ghost btn-sm mt-2">Back to Project</a>
+			</div>
+		</div>
+		@ReleasesFragment(project, releases, environments, errorMsg)
+	</div>
+}
+
+templ ReleasesFragment(project db.Project, releases []db.Release, environments []db.Environment, errorMsg string) {
+	<div id="releases-content">
+		@ReleaseForm(project.ID, errorMsg)
+		@ReleasesTable(project, releases, environments)
+	</div>
+}
+
+templ ReleaseForm(projectID int64, errorMsg string) {
+	<div class="card bg-base-200 p-4 mb-6">
+		<h3 class="text-lg font-bold mb-4">Create Release</h3>
+		<form
+			hx-post={ fmt.Sprintf("/projects/%d/releases", projectID) }
+			hx-target="#releases-content"
+			hx-swap="outerHTML"
+			class="flex flex-wrap gap-4 items-end"
+		>
+			<div class="form-control flex-1 min-w-[200px]">
+				<label class="label">
+					<span class="label-text">Version</span>
+				</label>
+				<input type="text" name="version" class="input input-bordered" placeholder="e.g. 1.0.0" required/>
+				if errorMsg != "" {
+					<span class="text-error text-sm mt-1">{ errorMsg }</span>
+				}
+			</div>
+			<button type="submit" class="btn btn-primary">Create Release</button>
+		</form>
+	</div>
+}
+
+templ ReleasesTable(project db.Project, releases []db.Release, environments []db.Environment) {
+	<table class="table table-zebra w-full">
+		<thead>
+			<tr>
+				<th>Version</th>
+				<th>Created At</th>
+				<th>Actions</th>
+			</tr>
+		</thead>
+		<tbody>
+			if len(releases) == 0 {
+				<tr>
+					<td colspan="3" class="text-gray-500 italic text-center py-4">No releases yet.</td>
+				</tr>
+			} else {
+				for _, release := range releases {
+					@ReleaseRow(project.ID, release, environments)
+				}
+			}
+		</tbody>
+	</table>
+}
+
+templ ReleaseRow(projectID int64, release db.Release, environments []db.Environment) {
+	<tr id={ fmt.Sprintf("release-row-%d", release.ID) }>
+		<td class="font-medium">
+			<a href={ fmt.Sprintf("/projects/%d/releases/%d", projectID, release.ID) } class="link link-primary">{ release.Version }</a>
+		</td>
+		<td>{ formatUnixTime(release.CreatedAt) }</td>
+		<td class="flex gap-2">
+			<a href={ fmt.Sprintf("/projects/%d/releases/%d", projectID, release.ID) } class="btn btn-sm btn-secondary">View</a>
+		<form method="post" action="/deployments" class="inline">
+			<input type="hidden" name="release_id" value={ strconv.FormatInt(release.ID, 10) }/>
+			<select name="environment_id" class="select select-sm select-bordered mr-2" required>
+				<option value="">Select env</option>
+				for _, env := range environments {
+					<option value={ strconv.FormatInt(env.ID, 10) }>{ env.Name }</option>
+				}
+			</select>
+			<button type="submit" class="btn btn-sm btn-accent">Deploy</button>
+		</form>
+		</td>
+	</tr>
+}
+
+templ ReleaseDetailPage(project db.Project, release db.Release, variables []db.ReleaseVariable, environments []db.Environment, currentPath string) {
+	@layouts.Base(fmt.Sprintf("Release %s", release.Version), currentPath) {
+		@components.Breadcrumbs([]components.Crumb{
+			{Label: "Home", Href: "/"},
+			{Label: "Projects", Href: "/projects"},
+			{Label: project.Name, Href: fmt.Sprintf("/projects/%d", project.ID)},
+			{Label: "Releases", Href: fmt.Sprintf("/projects/%d/releases", project.ID)},
+			{Label: release.Version},
+		})
+		@ReleaseDetail(project, release, variables, environments)
+	}
+}
+
+templ ReleaseDetail(project db.Project, release db.Release, variables []db.ReleaseVariable, environments []db.Environment) {
+	<div class="space-y-6">
+		<div class="flex justify-between items-center">
+			<div>
+				<h1 class="text-3xl font-bold">Release { release.Version }</h1>
+				<p class="text-gray-400">Project: { project.Name }</p>
+				<a href={ fmt.Sprintf("/projects/%d/releases", project.ID) } class="btn btn-ghost btn-sm mt-2">Back to Releases</a>
+			</div>
+		</div>
+		<div class="card bg-base-200 p-4">
+			<h2 class="text-xl font-bold mb-4">Snapshotted Steps</h2>
+			<table class="table table-zebra w-full">
+				<thead>
+					<tr>
+						<th class="w-16">Order</th>
+						<th>Name</th>
+						<th>Script</th>
+					</tr>
+				</thead>
+				<tbody>
+					if len(parseReleaseSteps(release.StepsJson)) == 0 {
+						<tr>
+							<td colspan="3" class="text-gray-500 italic text-center py-4">No steps in this release.</td>
+						</tr>
+					} else {
+						for _, step := range parseReleaseSteps(release.StepsJson) {
+							<tr>
+								<td>{ strconv.FormatInt(step.SortOrder, 10) }</td>
+								<td class="font-medium">{ step.Name }</td>
+								<td>
+									<code class="text-sm bg-base-300 px-2 py-1 rounded">
+										if len(step.ScriptBody) > 60 {
+											{ step.ScriptBody[:60] + "..." }
+										} else {
+											{ step.ScriptBody }
+										}
+									</code>
+								</td>
+							</tr>
+						}
+					}
+				</tbody>
+			</table>
+		</div>
+		<div class="card bg-base-200 p-4">
+			<h2 class="text-xl font-bold mb-4">Snapshotted Variables</h2>
+			<table class="table table-zebra w-full">
+				<thead>
+					<tr>
+						<th>Name</th>
+						<th>Value</th>
+						<th>Environment</th>
+					</tr>
+				</thead>
+				<tbody>
+					if len(variables) == 0 {
+						<tr>
+							<td colspan="3" class="text-gray-500 italic text-center py-4">No variables in this release.</td>
+						</tr>
+					} else {
+						for _, v := range variables {
+							<tr>
+								<td class="font-medium">{ v.Name }</td>
+								<td>
+									if v.Value.Valid {
+										{ v.Value.String }
+									} else {
+										<span class="text-gray-500 italic">(empty)</span>
+									}
+								</td>
+								<td>
+									if v.EnvironmentID.Valid {
+										for _, env := range environments {
+											if env.ID == v.EnvironmentID.Int64 {
+												{ env.Name }
+											}
+										}
+									} else {
+										<span class="text-gray-500">Unscoped</span>
+									}
+								</td>
+							</tr>
+						}
+					}
+				</tbody>
+			</table>
+		</div>
+	</div>
+}

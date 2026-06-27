@@ -1,0 +1,224 @@
+package pages
+
+import (
+	"durpdeploy/internal/db"
+	"durpdeploy/views/components"
+	"durpdeploy/views/layouts"
+	"fmt"
+	"strconv"
+)
+
+type DeploymentListItem struct {
+	Deployment      db.Deployment
+	ProjectName     string
+	ReleaseVersion  string
+	EnvironmentName string
+}
+
+templ DeploymentsListPage(items []DeploymentListItem, currentPath string) {
+	@layouts.Base("Deployments", currentPath) {
+		@components.Breadcrumbs([]components.Crumb{
+			{Label: "Home", Href: "/"},
+			{Label: "Deployments"},
+		})
+		@DeploymentsContent(items)
+	}
+}
+
+templ DeploymentsContent(items []DeploymentListItem) {
+	<div class="space-y-6">
+		<div class="flex justify-between items-center">
+			<h1 class="text-3xl font-bold">Deployments</h1>
+		</div>
+		@DeploymentsList(items)
+	</div>
+}
+
+templ DeploymentsList(items []DeploymentListItem) {
+	<div id="deployments-content">
+		if len(items) == 0 {
+			<div class="card bg-base-200 p-8 text-center">
+				<p class="text-gray-400">No deployments yet. Deploy a release to see results here.</p>
+			</div>
+		} else {
+			<table class="table table-zebra w-full">
+				<thead>
+					<tr>
+						<th>Project</th>
+						<th>Version</th>
+						<th>Environment</th>
+						<th>Status</th>
+						<th>Date</th>
+						<th>Actions</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, item := range items {
+						<tr>
+							<td>{ item.ProjectName }</td>
+							<td>{ item.ReleaseVersion }</td>
+							<td>{ item.EnvironmentName }</td>
+							<td>
+								@StatusBadge(item.Deployment)
+							</td>
+							<td>{ formatUnixTime(item.Deployment.CreatedAt) }</td>
+							<td>
+								<a href={ fmt.Sprintf("/deployments/%d", item.Deployment.ID) } class="btn btn-sm btn-secondary">View</a>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	</div>
+}
+
+func statusBadgeClass(status string) string {
+	switch status {
+	case "pending":
+		return "badge-primary"
+	case "running":
+		return "badge-warning"
+	case "succeeded":
+		return "badge-success"
+	case "failed":
+		return "badge-error"
+	case "cancelled":
+		return "badge-ghost"
+	default:
+		return "badge-ghost"
+	}
+}
+
+func isTerminalStatus(status string) bool {
+	switch status {
+	case "succeeded", "failed", "cancelled":
+		return true
+	default:
+		return false
+	}
+}
+
+templ StatusBadge(deployment db.Deployment) {
+	<span class={ fmt.Sprintf("badge %s", statusBadgeClass(deployment.Status)) }>
+		{ deployment.Status }
+	</span>
+}
+
+templ StatusBadgeContainer(deployment db.Deployment) {
+	<div
+		id="status-badge"
+		hx-get={ fmt.Sprintf("/deployments/%d/status", deployment.ID) }
+		if isTerminalStatus(deployment.Status) {
+			hx-trigger="none"
+		} else {
+			hx-trigger="every 3s"
+		}
+		hx-swap="outerHTML"
+	>
+		@StatusBadge(deployment)
+	</div>
+}
+
+templ DeploymentDetailPage(project db.Project, release db.Release, environment db.Environment, deployment db.Deployment, logs []db.DeploymentLog, currentPath string) {
+	@layouts.Base(fmt.Sprintf("Deployment %d", deployment.ID), currentPath) {
+		@components.Breadcrumbs([]components.Crumb{
+			{Label: "Home", Href: "/"},
+			{Label: "Deployments", Href: "/deployments"},
+			{Label: fmt.Sprintf("#%d", deployment.ID)},
+		})
+		@DeploymentDetail(project, release, environment, deployment, logs)
+	}
+}
+
+templ DeploymentDetail(project db.Project, release db.Release, environment db.Environment, deployment db.Deployment, logs []db.DeploymentLog) {
+	<div class="space-y-6">
+		<div class="flex justify-between items-center">
+			<div>
+				<h1 class="text-3xl font-bold">Deployment #{ strconv.FormatInt(deployment.ID, 10) }</h1>
+				<p class="text-gray-400">
+					Project: { project.Name } | Release: { release.Version } | Environment: { environment.Name }
+				</p>
+				<a href={ fmt.Sprintf("/projects/%d/releases/%d", project.ID, release.ID) } class="btn btn-ghost btn-sm mt-2">Back to Release</a>
+			</div>
+			<div class="flex items-center gap-2">
+				if deployment.Status == "running" {
+					<button
+						class="btn btn-sm btn-error"
+						hx-post={ fmt.Sprintf("/deployments/%d/cancel", deployment.ID) }
+						hx-target="#status-badge"
+						hx-swap="outerHTML"
+					>
+						Cancel
+					</button>
+				}
+				@StatusBadgeContainer(deployment)
+			</div>
+		</div>
+		<div class="card bg-base-200 p-4">
+			<h2 class="text-xl font-bold mb-4">Steps</h2>
+			<table class="table table-zebra w-full">
+				<thead>
+					<tr>
+						<th class="w-16">Order</th>
+						<th>Name</th>
+						<th>Script</th>
+					</tr>
+				</thead>
+				<tbody>
+					if len(parseReleaseSteps(release.StepsJson)) == 0 {
+						<tr>
+							<td colspan="3" class="text-gray-500 italic text-center py-4">No steps in this release.</td>
+						</tr>
+					} else {
+						for _, step := range parseReleaseSteps(release.StepsJson) {
+							<tr>
+								<td>{ strconv.FormatInt(step.SortOrder, 10) }</td>
+								<td class="font-medium">{ step.Name }</td>
+								<td>
+									<code class="text-sm bg-base-300 px-2 py-1 rounded">
+										if len(step.ScriptBody) > 60 {
+											{ step.ScriptBody[:60] + "..." }
+										} else {
+											{ step.ScriptBody }
+										}
+									</code>
+								</td>
+							</tr>
+						}
+					}
+				</tbody>
+			</table>
+		</div>
+		<div class="card bg-base-200 p-4">
+			<h2 class="text-xl font-bold mb-4">Logs</h2>
+			if len(logs) == 0 {
+				<p id="no-logs-message" class="text-gray-500 italic">No logs yet.</p>
+			} else {
+				<div class="space-y-1">
+					for _, log := range logs {
+						<div class="font-mono text-sm">
+							<span class="text-gray-500">[{ formatUnixTime(log.CreatedAt) }]</span>
+							if log.StepName.Valid {
+								<span class="text-accent">[{ log.StepName.String }]</span>
+							}
+							<span class="text-base-content">{ log.Line }</span>
+						</div>
+					}
+				</div>
+			}
+			<pre id="log-container" data-deployment-id={ strconv.FormatInt(deployment.ID, 10) } class="font-mono text-sm mt-4 whitespace-pre-wrap"></pre>
+			<script>
+				const deploymentID = document.getElementById('log-container').dataset.deploymentId;
+				const es = new EventSource('/deployments/' + deploymentID + '/logs/stream');
+				es.onmessage = function(e) {
+					const noLogsMsg = document.getElementById('no-logs-message');
+					if (noLogsMsg) {
+						noLogsMsg.remove();
+					}
+					document.getElementById('log-container').textContent += e.data + '\n';
+				};
+			</script>
+		</div>
+	</div>
+}

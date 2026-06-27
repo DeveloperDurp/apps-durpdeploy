@@ -1,0 +1,235 @@
+package pages
+
+import (
+	"durpdeploy/internal/db"
+	"durpdeploy/views/components"
+	"durpdeploy/views/layouts"
+	"fmt"
+	"strconv"
+)
+
+func filterUnscoped(vars []db.Variable) []db.Variable {
+	result := make([]db.Variable, 0)
+	for _, v := range vars {
+		if !v.EnvironmentID.Valid {
+			result = append(result, v)
+		}
+	}
+	return result
+}
+
+func filterScoped(vars []db.Variable) []db.Variable {
+	result := make([]db.Variable, 0)
+	for _, v := range vars {
+		if v.EnvironmentID.Valid {
+			result = append(result, v)
+		}
+	}
+	return result
+}
+
+func envNameForID(environments []db.Environment, id int64) string {
+	for _, env := range environments {
+		if env.ID == id {
+			return env.Name
+		}
+	}
+	return ""
+}
+
+templ VariablesPage(project db.Project, variables []db.Variable, environments []db.Environment, errorMsg string, currentPath string) {
+	@layouts.Base("Variables", currentPath) {
+		@components.Breadcrumbs([]components.Crumb{
+			{Label: "Home", Href: "/"},
+			{Label: "Projects", Href: "/projects"},
+			{Label: project.Name, Href: fmt.Sprintf("/projects/%d", project.ID)},
+			{Label: "Variables"},
+		})
+		@VariablesContent(project, variables, environments, errorMsg)
+	}
+}
+
+templ VariablesContent(project db.Project, variables []db.Variable, environments []db.Environment, errorMsg string) {
+	<div class="space-y-6">
+		<div class="flex justify-between items-center">
+			<div>
+				<h1 class="text-3xl font-bold">Variables for Project: { project.Name }</h1>
+				<a href={ fmt.Sprintf("/projects/%d", project.ID) } class="btn btn-ghost btn-sm mt-2">Back to Project</a>
+			</div>
+		</div>
+		@VariablesFragment(project, variables, environments, errorMsg)
+	</div>
+}
+
+templ VariablesFragment(project db.Project, variables []db.Variable, environments []db.Environment, errorMsg string) {
+	<div id="variables-content">
+		@VariableForm(project.ID, environments, errorMsg)
+		@VariablesTable(project, variables, environments)
+	</div>
+}
+
+templ VariableForm(projectID int64, environments []db.Environment, errorMsg string) {
+	<div class="card bg-base-200 p-4 mb-6">
+		<h3 class="text-lg font-bold mb-4">New Variable</h3>
+		<form
+			hx-post={ fmt.Sprintf("/projects/%d/variables", projectID) }
+			hx-target="#variables-content"
+			hx-swap="outerHTML"
+			class="flex flex-wrap gap-4 items-end"
+		>
+			<div class="form-control flex-1 min-w-[200px]">
+				<label class="label">
+					<span class="label-text">Name</span>
+				</label>
+				<input type="text" name="name" class="input input-bordered" required/>
+				if errorMsg != "" {
+					<span class="text-error text-sm mt-1">{ errorMsg }</span>
+				}
+			</div>
+			<div class="form-control flex-1 min-w-[200px]">
+				<label class="label">
+					<span class="label-text">Value</span>
+				</label>
+				<input type="text" name="value" class="input input-bordered"/>
+			</div>
+			<div class="form-control flex-1 min-w-[200px]">
+				<label class="label">
+					<span class="label-text">Environment</span>
+				</label>
+				<select name="environment_id" class="select select-bordered">
+					<option value="">Unscoped</option>
+					for _, env := range environments {
+						<option value={ strconv.FormatInt(env.ID, 10) }>{ env.Name }</option>
+					}
+				</select>
+			</div>
+			<button type="submit" class="btn btn-primary">Create</button>
+		</form>
+	</div>
+}
+
+templ VariablesTable(project db.Project, variables []db.Variable, environments []db.Environment) {
+	<table class="table table-zebra w-full">
+		<thead>
+			<tr>
+				<th>Name</th>
+				<th>Value</th>
+				<th>Environment</th>
+				<th>Actions</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr class="bg-base-300">
+				<td colspan="4" class="font-bold">Unscoped Variables</td>
+			</tr>
+			if len(filterUnscoped(variables)) == 0 {
+				<tr>
+					<td colspan="4" class="text-gray-500 italic text-center py-4">No unscoped variables.</td>
+				</tr>
+			} else {
+				for _, v := range filterUnscoped(variables) {
+					@VariableRow(project.ID, v, environments)
+				}
+			}
+			<tr class="bg-base-300">
+				<td colspan="4" class="font-bold">Environment-Scoped Variables</td>
+			</tr>
+			if len(filterScoped(variables)) == 0 {
+				<tr>
+					<td colspan="4" class="text-gray-500 italic text-center py-4">No environment-scoped variables.</td>
+				</tr>
+			} else {
+				for _, v := range filterScoped(variables) {
+					@VariableRow(project.ID, v, environments)
+				}
+			}
+		</tbody>
+	</table>
+}
+
+templ VariableRow(projectID int64, variable db.Variable, environments []db.Environment) {
+	<tr id={ fmt.Sprintf("variable-row-%d", variable.ID) }>
+		<td class="font-medium">{ variable.Name }</td>
+		<td>
+			if variable.Value.Valid {
+				{ variable.Value.String }
+			} else {
+				<span class="text-gray-500 italic">(empty)</span>
+			}
+		</td>
+		<td>
+			if variable.EnvironmentID.Valid {
+				{ envNameForID(environments, variable.EnvironmentID.Int64) }
+			} else {
+				<span class="text-gray-500">Unscoped</span>
+			}
+		</td>
+		<td class="flex gap-2">
+			<button
+				class="btn btn-sm btn-ghost"
+				hx-get={ fmt.Sprintf("/projects/%d/variables/%d/edit", projectID, variable.ID) }
+				hx-target={ fmt.Sprintf("#variable-row-%d", variable.ID) }
+				hx-swap="outerHTML"
+			>
+				Edit
+			</button>
+			<button
+				class="btn btn-sm btn-error"
+				hx-delete={ fmt.Sprintf("/projects/%d/variables/%d", projectID, variable.ID) }
+				hx-target="#variables-content"
+				hx-swap="outerHTML"
+				hx-confirm="Delete this variable?"
+			>
+				Delete
+			</button>
+		</td>
+	</tr>
+}
+
+templ VariableEditRow(projectID int64, variable db.Variable, environments []db.Environment, errorMsg string) {
+	<tr id={ fmt.Sprintf("variable-row-%d", variable.ID) }>
+		<td colspan="4">
+			<form
+				hx-put={ fmt.Sprintf("/projects/%d/variables/%d", projectID, variable.ID) }
+				hx-target="#variables-content"
+				hx-swap="outerHTML"
+				class="flex flex-wrap gap-4 items-end"
+			>
+				<div class="form-control flex-1 min-w-[200px]">
+					<label class="label">
+						<span class="label-text">Name</span>
+					</label>
+					<input type="text" name="name" value={ variable.Name } class="input input-bordered input-sm w-full" required/>
+					if errorMsg != "" {
+						<span class="text-error text-sm mt-1">{ errorMsg }</span>
+					}
+				</div>
+				<div class="form-control flex-1 min-w-[200px]">
+					<label class="label">
+						<span class="label-text">Value</span>
+					</label>
+					<input type="text" name="value" value={ variable.Value.String } class="input input-bordered input-sm w-full"/>
+				</div>
+				<div class="form-control flex-1 min-w-[200px]">
+					<label class="label">
+						<span class="label-text">Environment</span>
+					</label>
+					<select name="environment_id" class="select select-bordered select-sm w-full">
+						<option value="">Unscoped</option>
+						for _, env := range environments {
+							if variable.EnvironmentID.Valid && env.ID == variable.EnvironmentID.Int64 {
+								<option value={ strconv.FormatInt(env.ID, 10) } selected>{ env.Name }</option>
+							} else {
+								<option value={ strconv.FormatInt(env.ID, 10) }>{ env.Name }</option>
+							}
+						}
+					</select>
+				</div>
+				<div class="flex gap-2 pb-1">
+					<button type="submit" class="btn btn-primary btn-sm">Save</button>
+					<button type="button" class="btn btn-ghost btn-sm" hx-get={ fmt.Sprintf("/projects/%d/variables", projectID) } hx-target="#variables-content" hx-swap="outerHTML">Cancel</button>
+				</div>
+			</form>
+		</td>
+	</tr>
+}

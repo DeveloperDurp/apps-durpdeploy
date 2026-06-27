@@ -1,0 +1,90 @@
+package components
+
+import (
+	"durpdeploy/internal/db"
+	"fmt"
+	"strconv"
+)
+
+templ StepForm(step db.Step, projectID int64, isNew bool, errorMsg string) {
+	<div class="p-4 border border-base-300 rounded bg-base-200">
+		<form
+			if isNew {
+				hx-post={ fmt.Sprintf("/projects/%d/steps", projectID) }
+			} else {
+				hx-put={ fmt.Sprintf("/projects/%d/steps/%d", projectID, step.ID) }
+			}
+			hx-target="#step-list"
+			hx-swap="innerHTML"
+			if isNew {
+				hx-on::after-request="if(event.detail.successful) this.reset()"
+			}
+			class="space-y-4"
+		>
+			<div class="form-control">
+				<label class="label">
+					<span class="label-text">Name</span>
+				</label>
+				<input type="text" name="name" value={ step.Name } class="input input-bordered"/>
+				if errorMsg != "" {
+					<span class="text-error text-sm mt-1">{ errorMsg }</span>
+				}
+			</div>
+			<div class="form-control">
+				<label class="label">
+					<span class="label-text">Script Body (Bash)</span>
+				</label>
+				<textarea name="script_body" class="textarea textarea-bordered" rows="4">{ step.ScriptBody }</textarea>
+			</div>
+			<input type="hidden" name="sort_order" value={ strconv.FormatInt(step.SortOrder, 10) }/>
+			<div class="flex gap-2">
+				<button type="submit" class="btn btn-primary btn-sm">
+					if isNew {
+						Add Step
+					} else {
+						Update
+					}
+				</button>
+				if isNew {
+					<button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('add-step-form').innerHTML=''">Cancel</button>
+				} else {
+					<button type="button" class="btn btn-ghost btn-sm" hx-get={ fmt.Sprintf("/projects/%d/steps", projectID) } hx-target="#step-list" hx-swap="innerHTML">Cancel</button>
+				}
+			</div>
+		</form>
+	</div>
+}
+
+templ StepEditRow(step db.Step, projectID int64, errorMsg string) {
+	<tr id={ fmt.Sprintf("step-row-%d", step.ID) }>
+		<td colspan="4">
+			<form
+				hx-put={ fmt.Sprintf("/projects/%d/steps/%d", projectID, step.ID) }
+				hx-target="#step-list"
+				hx-swap="innerHTML"
+				class="flex gap-4 items-end"
+			>
+				<div class="form-control flex-1">
+					<label class="label">
+						<span class="label-text">Name</span>
+					</label>
+					<input type="text" name="name" value={ step.Name } class="input input-bordered input-sm"/>
+					if errorMsg != "" {
+						<span class="text-error text-sm mt-1">{ errorMsg }</span>
+					}
+				</div>
+				<div class="form-control flex-[2]">
+					<label class="label">
+						<span class="label-text">Script Body (Bash)</span>
+					</label>
+					<textarea name="script_body" class="textarea textarea-bordered textarea-sm" rows="2">{ step.ScriptBody }</textarea>
+				</div>
+				<input type="hidden" name="sort_order" value={ strconv.FormatInt(step.SortOrder, 10) }/>
+				<div class="flex gap-2 pb-1">
+					<button type="submit" class="btn btn-primary btn-sm">Update</button>
+					<button type="button" class="btn btn-ghost btn-sm" hx-get={ fmt.Sprintf("/projects/%d/steps", projectID) } hx-target="#step-list" hx-swap="innerHTML">Cancel</button>
+				</div>
+			</form>
+		</td>
+	</tr>
+}

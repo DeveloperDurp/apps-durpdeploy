@@ -1,0 +1,17 @@
+package pages
+
+import "durpdeploy/views/layouts"
+
+templ ErrorAlert(message string) {
+	<div class="alert alert-error">
+		<span>{ message }</span>
+	</div>
+}
+
+templ ErrorPage(title string, message string, currentPath string) {
+	@layouts.Base(title, currentPath) {
+		<div class="max-w-2xl mx-auto mt-10">
+			@ErrorAlert(message)
+		</div>
+	}
+}

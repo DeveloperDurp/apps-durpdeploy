@@ -1,0 +1,73 @@
+package pages
+
+import (
+	"durpdeploy/internal/db"
+	"durpdeploy/views/components"
+	"durpdeploy/views/layouts"
+	"fmt"
+)
+
+templ ProjectsList(projects []db.Project) {
+	<div id="projects-list">
+		<div class="flex justify-between items-center mb-4">
+			<h1 class="text-2xl font-bold">Projects</h1>
+			<a href="/projects/new" class="btn btn-primary">New Project</a>
+		</div>
+		if len(projects) == 0 {
+			<div class="card bg-base-200 p-8 text-center">
+				<p class="text-gray-400 mb-4">No projects yet. Create your first project to get started.</p>
+				<a href="/projects/new" class="btn btn-primary">New Project</a>
+			</div>
+		} else {
+			<div class="overflow-x-auto">
+				<table class="table table-zebra w-full">
+					<thead>
+						<tr>
+							<th>Name</th>
+							<th>Description</th>
+							<th class="w-48">Actions</th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, p := range projects {
+							<tr>
+								<td>
+									<a href={ fmt.Sprintf("/projects/%d", p.ID) } class="link link-primary">{ p.Name }</a>
+								</td>
+								<td>
+									if p.Description.Valid {
+										{ p.Description.String }
+									} else {
+										<span class="text-gray-500">-</span>
+									}
+								</td>
+								<td class="flex gap-2">
+									<a href={ fmt.Sprintf("/projects/%d/edit", p.ID) } class="btn btn-sm btn-secondary">Edit</a>
+									<button
+										class="btn btn-sm btn-error"
+										hx-delete={ fmt.Sprintf("/projects/%d", p.ID) }
+										hx-target="closest tr"
+										hx-swap="outerHTML"
+										hx-confirm="Delete this project?"
+									>
+										Delete
+									</button>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+	</div>
+}
+
+templ ProjectsListPage(projects []db.Project, currentPath string) {
+	@layouts.Base("Projects", currentPath) {
+		@components.Breadcrumbs([]components.Crumb{
+			{Label: "Home", Href: "/"},
+			{Label: "Projects"},
+		})
+		@ProjectsList(projects)
+	}
+}

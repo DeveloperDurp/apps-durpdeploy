@@ -1,0 +1,55 @@
+package pages
+
+import (
+	"durpdeploy/internal/db"
+	"durpdeploy/views/components"
+	"durpdeploy/views/layouts"
+	"fmt"
+)
+
+templ ProjectDetail(project db.Project, steps []db.Step) {
+	<div id="project-detail">
+		<div class="flex justify-between items-center mb-4">
+			<h1 class="text-2xl font-bold">{ project.Name }</h1>
+			<a href="/projects" class="btn btn-ghost btn-sm">Back to Projects</a>
+		</div>
+		<p class="mb-6 text-gray-400">
+			if project.Description.Valid {
+				{ project.Description.String }
+			} else {
+				<span>No description</span>
+			}
+		</p>
+		<div class="flex gap-4">
+			<a href={ fmt.Sprintf("/projects/%d", project.ID) } class="btn btn-primary">Steps</a>
+			<a href={ fmt.Sprintf("/projects/%d/variables", project.ID) } class="btn btn-secondary">Variables</a>
+			<a href={ fmt.Sprintf("/projects/%d/releases", project.ID) } class="btn btn-accent">Releases</a>
+		</div>
+		<div class="mt-8">
+			<h2 class="text-xl font-bold mb-4">Deployment Process</h2>
+			@components.StepList(steps, project.ID)
+			<div class="mt-4">
+				<button
+					class="btn btn-primary btn-sm"
+					hx-get={ fmt.Sprintf("/projects/%d/steps/new", project.ID) }
+					hx-target="#add-step-form"
+					hx-swap="innerHTML"
+				>
+					Add Step
+				</button>
+				<div id="add-step-form" class="mt-4"></div>
+			</div>
+		</div>
+	</div>
+}
+
+templ ProjectDetailPage(project db.Project, steps []db.Step, currentPath string) {
+	@layouts.Base(project.Name, currentPath) {
+		@components.Breadcrumbs([]components.Crumb{
+			{Label: "Home", Href: "/"},
+			{Label: "Projects", Href: "/projects"},
+			{Label: project.Name},
+		})
+		@ProjectDetail(project, steps)
+	}
+}

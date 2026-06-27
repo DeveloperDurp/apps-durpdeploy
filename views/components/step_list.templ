@@ -1,0 +1,88 @@
+package components
+
+import (
+	"durpdeploy/internal/db"
+	"fmt"
+	"strconv"
+)
+
+templ StepList(steps []db.Step, projectID int64) {
+	<div id="step-list">
+		<table class="table table-zebra w-full">
+			<thead>
+				<tr>
+					<th class="w-16">Order</th>
+					<th>Name</th>
+					<th>Script</th>
+					<th class="w-56">Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				for i, step := range steps {
+					@StepRow(step, projectID, i == 0, i == len(steps)-1)
+				}
+			</tbody>
+		</table>
+	</div>
+}
+
+templ StepRow(step db.Step, projectID int64, isFirst bool, isLast bool) {
+	<tr id={ fmt.Sprintf("step-row-%d", step.ID) }>
+		<td>{ strconv.FormatInt(step.SortOrder, 10) }</td>
+		<td class="font-medium">{ step.Name }</td>
+		<td>
+			<code class="text-sm bg-base-200 px-2 py-1 rounded">
+				if len(step.ScriptBody) > 60 {
+					{ step.ScriptBody[:60] + "..." }
+				} else {
+					{ step.ScriptBody }
+				}
+			</code>
+		</td>
+		<td class="flex gap-2">
+			<button
+				class="btn btn-xs btn-ghost"
+				if !isFirst {
+					hx-patch={ fmt.Sprintf("/projects/%d/steps/reorder", projectID) }
+					hx-vals={ fmt.Sprintf("{\"step_id\":%d,\"new_order\":%d}", step.ID, step.SortOrder-1) }
+					hx-target="#step-list"
+					hx-swap="innerHTML"
+				} else {
+					disabled
+				}
+			>
+				↑
+			</button>
+			<button
+				class="btn btn-xs btn-ghost"
+				if !isLast {
+					hx-patch={ fmt.Sprintf("/projects/%d/steps/reorder", projectID) }
+					hx-vals={ fmt.Sprintf("{\"step_id\":%d,\"new_order\":%d}", step.ID, step.SortOrder+1) }
+					hx-target="#step-list"
+					hx-swap="innerHTML"
+				} else {
+					disabled
+				}
+			>
+				↓
+			</button>
+			<button
+				class="btn btn-xs btn-secondary"
+				hx-get={ fmt.Sprintf("/projects/%d/steps/%d/edit", projectID, step.ID) }
+				hx-target={ fmt.Sprintf("#step-row-%d", step.ID) }
+				hx-swap="outerHTML"
+			>
+				Edit
+			</button>
+			<button
+				class="btn btn-xs btn-error"
+				hx-delete={ fmt.Sprintf("/projects/%d/steps/%d", projectID, step.ID) }
+				hx-target="#step-list"
+				hx-swap="innerHTML"
+				hx-confirm="Delete this step?"
+			>
+				Delete
+			</button>
+		</td>
+	</tr>
+}
