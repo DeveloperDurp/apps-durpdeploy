@@ -4,6 +4,8 @@ A single-binary deployment tool for running bash scripts against environments. D
 
 *** This Application is a test of "Vibe Coding" and what can and cannot be done with AI ***
 
+![Main Screen](screenshots/main_screen.png)
+
 ## Features
 
 - **Projects** - Organize deployments into projects
