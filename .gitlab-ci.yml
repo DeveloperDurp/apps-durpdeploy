@@ -7,6 +7,9 @@ stages:
 
 lint:
   stage: lint
+  before_script:
+    - go install github.com/a-h/templ/cmd/templ@latest
+    - templ generate
   script:
     - go vet ./...
     - test -z "$(gofmt -l .)"
@@ -20,6 +23,9 @@ test:
 
 build:
   stage: build
+  before_script:
+    - go install github.com/a-h/templ/cmd/templ@latest
+    - templ generate
   script:
     - go build -o durpdeploy ./cmd/server
   artifacts:
