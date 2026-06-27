@@ -40,11 +40,13 @@ build:
 
 docker:
   stage: docker
-  image:
-    name: gcr.io/kaniko-project/executor:latest
-    entrypoint: [""]
+  image: quay.io/buildah/stable:latest
+  variables:
+    BUILDAH_ISOLATION: chroot
   script:
-    - /kaniko/executor --context $CI_PROJECT_DIR --dockerfile $CI_PROJECT_DIR/Dockerfile --destination $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA --destination $CI_REGISTRY_IMAGE:latest
+    - buildah build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA -t $CI_REGISTRY_IMAGE:latest .
+    - buildah push --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+    - buildah push --creds $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD $CI_REGISTRY_IMAGE:latest
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_TAG
