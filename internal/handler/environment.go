@@ -180,5 +180,5 @@ func (h *EnvironmentHandler) DeleteEnvironment(w http.ResponseWriter, r *http.Re
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	pages.EnvironmentsListFragment(envs).Render(r.Context(), w)
+	pages.EnvironmentsListContent(envs).Render(r.Context(), w)
 }

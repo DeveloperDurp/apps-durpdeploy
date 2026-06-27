@@ -63,8 +63,9 @@ templ EnvironmentRow(env db.Environment) {
 			<a href={ templ.SafeURL("/environments/" + strconv.FormatInt(env.ID, 10) + "/edit") } class="btn btn-sm btn-ghost">Edit</a>
 			<button
 				hx-delete={ "/environments/" + strconv.FormatInt(env.ID, 10) }
-				hx-target="closest tr"
-				hx-swap="delete"
+				hx-target="#form-container"
+				hx-swap="innerHTML"
+				hx-confirm="Delete this environment?"
 				class="btn btn-sm btn-error"
 			>
 				Delete

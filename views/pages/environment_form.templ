@@ -27,11 +27,13 @@ templ EnvironmentFormContent(env *db.Environment, isNew bool, errorMsg string) {
 		</h1>
 		<form
 			if isNew {
-				hx-post="/environments"
+				method="post"
+				action="/environments"
 			} else {
 				hx-put={ "/environments/" + strconv.FormatInt(env.ID, 10) }
+				hx-target="#form-container"
+				hx-swap="innerHTML"
 			}
-			hx-target="#environments-content"
 			class="space-y-4"
 		>
 			<div class="form-control">

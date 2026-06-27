@@ -7,8 +7,8 @@ import (
 )
 
 templ ProjectForm(project db.Project, isEdit bool, errorMsg string) {
-	<div id="project-form">
-		<h1 class="text-2xl font-bold mb-4">
+	<div class="max-w-2xl mx-auto">
+		<h1 class="text-3xl font-bold mb-6">
 			if isEdit {
 				Edit Project
 			} else {
@@ -18,28 +18,24 @@ templ ProjectForm(project db.Project, isEdit bool, errorMsg string) {
 		<form
 			if isEdit {
 				hx-put={ fmt.Sprintf("/projects/%d", project.ID) }
+				hx-target="#form-container"
+				hx-swap="innerHTML"
 			} else {
-				hx-post="/projects"
+				method="post"
+				action="/projects"
 			}
-			hx-target="#form-container"
-			class="max-w-xl"
+			class="space-y-4"
 		>
-			<div class="form-control mb-4">
+			<div class="form-control">
 				<label class="label">
 					<span class="label-text">Name</span>
 				</label>
-				<input
-					type="text"
-					name="name"
-					class="input input-bordered"
-					value={ project.Name }
-					required
-				/>
+				<input type="text" name="name" class="input input-bordered" value={ project.Name } required/>
 				if errorMsg != "" {
 					<span class="text-error text-sm mt-1">{ errorMsg }</span>
 				}
 			</div>
-			<div class="form-control mb-4">
+			<div class="form-control">
 				<label class="label">
 					<span class="label-text">Description</span>
 				</label>
