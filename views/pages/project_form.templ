@@ -21,7 +21,7 @@ templ ProjectForm(project db.Project, isEdit bool, errorMsg string) {
 			} else {
 				hx-post="/projects"
 			}
-			hx-target="body"
+			hx-target="#form-container"
 			class="max-w-xl"
 		>
 			<div class="form-control mb-4">

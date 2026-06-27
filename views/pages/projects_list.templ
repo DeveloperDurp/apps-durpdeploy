@@ -46,7 +46,7 @@ templ ProjectsList(projects []db.Project) {
 									<button
 										class="btn btn-sm btn-error"
 										hx-delete={ fmt.Sprintf("/projects/%d", p.ID) }
-										hx-target="closest tr"
+										hx-target="#projects-list"
 										hx-swap="outerHTML"
 										hx-confirm="Delete this project?"
 									>
