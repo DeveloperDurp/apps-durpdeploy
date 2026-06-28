@@ -25,6 +25,21 @@ templ Base(title string, currentPath string) {
 			<script>document.documentElement.setAttribute('data-theme',localStorage.getItem('theme')||'mocha')</script>
 			<script src="/static/js/htmx.min.js" defer></script>
 			<script src="/static/js/alpine.min.js" defer></script>
+			<script>
+				document.addEventListener('alpine:init', () => {
+					Alpine.store('toast', {
+						show: false,
+						message: '',
+						timeout: null,
+						showToast(msg) {
+							if (this.timeout) clearTimeout(this.timeout)
+							this.message = msg
+							this.show = true
+							this.timeout = setTimeout(() => { this.show = false }, 3000)
+						}
+					})
+				})
+			</script>
 		</head>
 		<body class="bg-base-100 text-base-content min-h-screen">
 			<div class="navbar bg-base-200 border-b border-base-300" x-data="{ theme: localStorage.getItem('theme') || 'mocha' }" x-init="document.documentElement.setAttribute('data-theme', theme); $watch('theme', val => { document.documentElement.setAttribute('data-theme', val); localStorage.setItem('theme', val) })">
@@ -37,6 +52,7 @@ templ Base(title string, currentPath string) {
 							<li><a href="/projects" class={ activeClass(currentPath, "/projects") }>Projects</a></li>
 							<li><a href="/environments" class={ activeClass(currentPath, "/environments") }>Environments</a></li>
 							<li><a href="/deployments" class={ activeClass(currentPath, "/deployments") }>Deployments</a></li>
+							<li><a href="/templates" class={ activeClass(currentPath, "/templates") }>Templates</a></li>
 						</ul>
 						<button class="btn btn-ghost btn-sm" @click="theme = theme === 'mocha' ? 'light' : 'mocha'">
 							<span class="theme-dark">☀️</span>
@@ -48,6 +64,17 @@ templ Base(title string, currentPath string) {
 			<div class="container mx-auto p-4">
 				<div id="form-container">
 					{ children... }
+				</div>
+			</div>
+			<div
+				id="toast-container"
+				class="toast toast-end toast-top z-[9999]"
+				x-data="{ get show() { return $store.toast.show }, get message() { return $store.toast.message } }"
+				x-show="show"
+				x-transition.opacity.duration.300ms
+			>
+				<div class="alert alert-success shadow-lg">
+					<span x-text="message"></span>
 				</div>
 			</div>
 		</body>
