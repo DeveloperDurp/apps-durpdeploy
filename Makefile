@@ -1,9 +1,9 @@
-.PHONY: build dev templ-generate tailwind-build clean
+.PHONY: build dev templ-generate tailwind-build js-build clean
 
 BINARY_NAME=durpdeploy
 MAIN_PATH=cmd/server/main.go
 
-build: templ-generate tailwind-build
+build: templ-generate tailwind-build js-build
 	go build -o $(BINARY_NAME) $(MAIN_PATH)
 
 dev:
@@ -16,6 +16,9 @@ templ-generate:
 
 tailwind-build:
 	npx tailwindcss -i static/css/input.css -o static/css/tailwind.min.css --minify
+
+js-build:
+	npx esbuild static/js/app.js --bundle --minify --outfile=static/js/app.bundle.js
 
 clean:
 	rm -f $(BINARY_NAME)

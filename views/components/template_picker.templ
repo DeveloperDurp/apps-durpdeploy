@@ -27,6 +27,8 @@ templ TemplatePicker(templates []db.StepTemplate, projectID int64) {
 						hx-post={ fmt.Sprintf("/projects/%d/steps/from-template/%d", projectID, tpl.ID) }
 						hx-target="#step-list"
 						hx-swap="innerHTML"
+						data-toast-success="Step added from template"
+						data-toast-error="Failed to add step from template"
 					>
 						Insert
 					</button>

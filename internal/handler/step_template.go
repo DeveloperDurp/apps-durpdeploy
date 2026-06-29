@@ -235,6 +235,19 @@ func (h *StepTemplateHandler) SaveStepAsTemplate(w http.ResponseWriter, r *http.
 	}
 
 	if _, err := h.repo.Queries.CreateStepTemplate(r.Context(), params); err != nil {
+		if IsUniqueViolation(err) {
+			if r.Header.Get("HX-Request") == "true" {
+				steps, err := h.repo.Queries.ListStepsByProject(r.Context(), projectID)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				components.StepList(steps, projectID).Render(r.Context(), w)
+				return
+			}
+			http.Error(w, "A template with this name already exists", http.StatusConflict)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

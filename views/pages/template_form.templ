@@ -33,6 +33,8 @@ templ TemplateFormContent(tpl *db.StepTemplate, isNew bool, errorMsg string) {
 				hx-put={ "/templates/" + strconv.FormatInt(tpl.ID, 10) }
 				hx-target="#form-container"
 				hx-swap="innerHTML"
+				data-toast-success="Template updated"
+				data-toast-error="Failed to update template"
 			}
 			class="space-y-4"
 		>

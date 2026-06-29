@@ -80,7 +80,8 @@ templ StepRow(step db.Step, projectID int64, isFirst bool, isLast bool) {
 				hx-target="#step-list"
 				hx-swap="innerHTML"
 				hx-confirm="Save this step as a template?"
-				hx-on::after-request="if(event.detail.successful) Alpine.store('toast').showToast('Step saved as template')"
+				data-toast-success="Step saved as template"
+				data-toast-error="Failed to save template"
 			>
 				Save as Template
 			</button>
@@ -90,6 +91,8 @@ templ StepRow(step db.Step, projectID int64, isFirst bool, isLast bool) {
 				hx-target="#step-list"
 				hx-swap="innerHTML"
 				hx-confirm="Delete this step?"
+				data-toast-success="Step deleted"
+				data-toast-error="Failed to delete step"
 			>
 				Delete
 			</button>
