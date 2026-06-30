@@ -12,9 +12,9 @@ templ StepList(steps []db.Step, projectID int64) {
 			<thead>
 				<tr>
 					<th class="w-16">Order</th>
-					<th class="w-1/4">Name</th>
+					<th class="w-1/5">Name</th>
 					<th class="w-auto">Script</th>
-					<th class="w-48">Actions</th>
+					<th class="w-96">Actions</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -39,7 +39,7 @@ templ StepRow(step db.Step, projectID int64, isFirst bool, isLast bool) {
 				}
 			</code>
 		</td>
-		<td class="flex gap-2">
+		<td class="flex gap-1 whitespace-nowrap">
 			<button
 				class="btn btn-xs btn-ghost"
 				if !isFirst {
@@ -81,7 +81,7 @@ templ StepRow(step db.Step, projectID int64, isFirst bool, isLast bool) {
 			hx-swap="innerHTML"
 			hx-confirm="Save this step as template?"
 		>
-			Save as Template
+			Save Template
 		</button>
 		<button
 			class="btn btn-xs btn-error"
