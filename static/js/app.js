@@ -18,24 +18,41 @@ Alpine.data('toast', () => ({
 			this.visible = false;
 		}, 3000);
 	},
-	get alertClass() {
-		return this.type === 'error' ? 'alert-error' : 'alert-success';
+	get fullAlertClass() {
+		const classMap = {
+			'success': 'alert-success',
+			'error': 'alert-error',
+			'warning': 'alert-warning',
+			'info': 'alert-info'
+		};
+		const alertTypeClass = classMap[this.type] || 'alert-success';
+		console.log('fullAlertClass called, type:', this.type, 'returning:', `alert shadow-lg ${alertTypeClass}`);
+		return `alert shadow-lg ${alertTypeClass}`;
 	},
 	init() {
+		const self = this;
+		
 		window.addEventListener('show-toast', (e) => {
 			const { message, type } = e.detail;
-			this.show(message, type);
+			self.show(message, type);
+		});
+		
+		document.body.addEventListener('makeToast', (e) => {
+			const { level, message } = e.detail;
+			const type = level === 'danger' ? 'error' : level;
+			self.show(message, type);
 		});
 		
 		document.body.addEventListener('htmx:afterRequest', (e) => {
 			const trigger = e.detail.elt;
 			const successMsg = trigger.getAttribute('data-toast-success');
 			const errorMsg = trigger.getAttribute('data-toast-error');
+			const status = e.detail.xhr.status;
 			
-			if (e.detail.successful && successMsg) {
-				this.show(successMsg, 'success');
-			} else if (!e.detail.successful && errorMsg) {
-				this.show(errorMsg, 'error');
+			if (status >= 200 && status < 400 && successMsg) {
+				self.show(successMsg, 'success');
+			} else if (status >= 400 && errorMsg) {
+				self.show(errorMsg, 'error');
 			}
 		});
 	}

@@ -237,12 +237,16 @@ func (h *StepTemplateHandler) SaveStepAsTemplate(w http.ResponseWriter, r *http.
 	if _, err := h.repo.Queries.CreateStepTemplate(r.Context(), params); err != nil {
 		if IsUniqueViolation(err) {
 			if r.Header.Get("HX-Request") == "true" {
+				SetToastError(w, "A template with this name already exists")
+				w.WriteHeader(http.StatusConflict)
 				steps, err := h.repo.Queries.ListStepsByProject(r.Context(), projectID)
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
-				components.StepList(steps, projectID).Render(r.Context(), w)
+				if err := components.StepList(steps, projectID).Render(r.Context(), w); err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+				}
 				return
 			}
 			http.Error(w, "A template with this name already exists", http.StatusConflict)
@@ -253,12 +257,15 @@ func (h *StepTemplateHandler) SaveStepAsTemplate(w http.ResponseWriter, r *http.
 	}
 
 	if r.Header.Get("HX-Request") == "true" {
+		SetToastSuccess(w, "Step saved as template")
 		steps, err := h.repo.Queries.ListStepsByProject(r.Context(), projectID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		components.StepList(steps, projectID).Render(r.Context(), w)
+		if err := components.StepList(steps, projectID).Render(r.Context(), w); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 		return
 	}
 

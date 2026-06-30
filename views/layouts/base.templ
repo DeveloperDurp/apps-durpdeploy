@@ -56,7 +56,7 @@ templ Base(title string, currentPath string) {
 				x-transition.opacity.duration.300ms
 				class="toast toast-end toast-top z-[9999]"
 			>
-<div class="alert shadow-lg" :class="alertClass">
+<div :class="fullAlertClass">
 				<span x-text="message"></span>
 			</div>
 			</div>

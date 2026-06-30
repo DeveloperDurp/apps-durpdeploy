@@ -1,4 +1,4 @@
-.PHONY: build dev templ-generate tailwind-build js-build clean
+.PHONY: build dev templ-generate tailwind-build js-build npm-install clean
 
 BINARY_NAME=durpdeploy
 MAIN_PATH=cmd/server/main.go
@@ -14,10 +14,13 @@ dev:
 templ-generate:
 	templ generate
 
-tailwind-build:
+npm-install:
+	npm install
+
+tailwind-build: npm-install
 	npx tailwindcss -i static/css/input.css -o static/css/tailwind.min.css --minify
 
-js-build:
+js-build: npm-install
 	npx esbuild static/js/app.js --bundle --minify --outfile=static/js/app.bundle.js
 
 clean:
