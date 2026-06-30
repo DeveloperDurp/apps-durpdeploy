@@ -27,7 +27,7 @@ templ Base(title string, currentPath string) {
 		</head>
 		<body class="bg-base-100 text-base-content min-h-screen">
 			<div class="navbar bg-base-200 border-b border-base-300" x-data="{ theme: localStorage.getItem('theme') || 'mocha' }" x-init="document.documentElement.setAttribute('data-theme', theme); $watch('theme', val => { document.documentElement.setAttribute('data-theme', val); localStorage.setItem('theme', val) })">
-				<div class="container mx-auto">
+				<div class="w-full px-4 sm:px-6 lg:px-8">
 					<div class="flex-1">
 						<a href="/" class="btn btn-ghost text-xl">DurpDeploy</a>
 					</div>
@@ -45,7 +45,7 @@ templ Base(title string, currentPath string) {
 					</div>
 				</div>
 			</div>
-			<div class="container mx-auto p-4">
+			<div class="w-full px-4 sm:px-6 lg:px-8 py-4">
 				<div id="form-container">
 					{ children... }
 				</div>

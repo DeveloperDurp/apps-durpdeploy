@@ -41,27 +41,27 @@ templ DeploymentsList(items []DeploymentListItem) {
 				<p class="text-gray-400">No deployments yet. Deploy a release to see results here.</p>
 			</div>
 		} else {
-			<table class="table table-zebra w-full">
+			<table class="table table-zebra table-fixed w-full">
 				<thead>
 					<tr>
-						<th>Project</th>
-						<th>Version</th>
-						<th>Environment</th>
-						<th>Status</th>
-						<th>Date</th>
-						<th>Actions</th>
+						<th class="w-1/6">Project</th>
+						<th class="w-1/6">Version</th>
+						<th class="w-1/6">Environment</th>
+						<th class="w-1/6">Status</th>
+						<th class="w-1/6">Date</th>
+						<th class="w-1/6">Actions</th>
 					</tr>
 				</thead>
 				<tbody>
 					for _, item := range items {
 						<tr>
-							<td>{ item.ProjectName }</td>
-							<td>{ item.ReleaseVersion }</td>
-							<td>{ item.EnvironmentName }</td>
+							<td class="truncate">{ item.ProjectName }</td>
+							<td class="truncate">{ item.ReleaseVersion }</td>
+							<td class="truncate">{ item.EnvironmentName }</td>
 							<td>
 								@StatusBadge(item.Deployment)
 							</td>
-							<td>{ formatUnixTime(item.Deployment.CreatedAt) }</td>
+							<td class="whitespace-nowrap">{ formatUnixTime(item.Deployment.CreatedAt) }</td>
 							<td>
 								<a href={ fmt.Sprintf("/deployments/%d", item.Deployment.ID) } class="btn btn-sm btn-secondary">View</a>
 							</td>
@@ -159,12 +159,12 @@ templ DeploymentDetail(project db.Project, release db.Release, environment db.En
 		</div>
 		<div class="card bg-base-200 p-4">
 			<h2 class="text-xl font-bold mb-4">Steps</h2>
-			<table class="table table-zebra w-full">
+			<table class="table table-zebra table-fixed w-full">
 				<thead>
 					<tr>
 						<th class="w-16">Order</th>
-						<th>Name</th>
-						<th>Script</th>
+						<th class="w-1/4">Name</th>
+						<th class="w-auto">Script</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -176,8 +176,8 @@ templ DeploymentDetail(project db.Project, release db.Release, environment db.En
 						for _, step := range parseReleaseSteps(release.StepsJson) {
 							<tr>
 								<td>{ strconv.FormatInt(step.SortOrder, 10) }</td>
-								<td class="font-medium">{ step.Name }</td>
-								<td>
+								<td class="font-medium truncate">{ step.Name }</td>
+								<td class="truncate">
 									<code class="text-sm bg-base-300 px-2 py-1 rounded">
 										if len(step.ScriptBody) > 60 {
 											{ step.ScriptBody[:60] + "..." }

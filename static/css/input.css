@@ -1,3 +1,16 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer components {
+  /* Tables: fill viewport width, columns scale with window */
+  .table {
+    width: 100% !important;
+    table-layout: fixed;
+  }
+  .table th,
+  .table td {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+}

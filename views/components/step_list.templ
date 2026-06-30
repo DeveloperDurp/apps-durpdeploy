@@ -8,13 +8,13 @@ import (
 
 templ StepList(steps []db.Step, projectID int64) {
 	<div id="step-list">
-		<table class="table table-zebra w-full">
+		<table class="table table-zebra table-fixed w-full">
 			<thead>
 				<tr>
 					<th class="w-16">Order</th>
-					<th>Name</th>
-					<th>Script</th>
-					<th class="w-56">Actions</th>
+					<th class="w-1/5">Name</th>
+					<th class="w-auto">Script</th>
+					<th class="w-96">Actions</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -29,8 +29,8 @@ templ StepList(steps []db.Step, projectID int64) {
 templ StepRow(step db.Step, projectID int64, isFirst bool, isLast bool) {
 	<tr id={ fmt.Sprintf("step-row-%d", step.ID) }>
 		<td>{ strconv.FormatInt(step.SortOrder, 10) }</td>
-		<td class="font-medium">{ step.Name }</td>
-		<td>
+		<td class="font-medium truncate">{ step.Name }</td>
+		<td class="truncate">
 			<code class="text-sm bg-base-200 px-2 py-1 rounded">
 				if len(step.ScriptBody) > 60 {
 					{ step.ScriptBody[:60] + "..." }
@@ -39,7 +39,7 @@ templ StepRow(step db.Step, projectID int64, isFirst bool, isLast bool) {
 				}
 			</code>
 		</td>
-		<td class="flex gap-2">
+		<td class="flex gap-1 whitespace-nowrap">
 			<button
 				class="btn btn-xs btn-ghost"
 				if !isFirst {
@@ -81,7 +81,7 @@ templ StepRow(step db.Step, projectID int64, isFirst bool, isLast bool) {
 			hx-swap="innerHTML"
 			hx-confirm="Save this step as template?"
 		>
-			Save as Template
+			Save Template
 		</button>
 		<button
 			class="btn btn-xs btn-error"
