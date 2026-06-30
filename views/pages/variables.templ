@@ -111,13 +111,13 @@ templ VariableForm(projectID int64, environments []db.Environment, errorMsg stri
 }
 
 templ VariablesTable(project db.Project, variables []db.Variable, environments []db.Environment) {
-	<table class="table table-zebra w-full">
+	<table class="table table-zebra table-fixed w-full">
 		<thead>
 			<tr>
-				<th>Name</th>
-				<th>Value</th>
-				<th>Environment</th>
-				<th>Actions</th>
+				<th class="w-1/5">Name</th>
+				<th class="w-2/5">Value</th>
+				<th class="w-1/5">Environment</th>
+				<th class="w-1/5">Actions</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -151,15 +151,15 @@ templ VariablesTable(project db.Project, variables []db.Variable, environments [
 
 templ VariableRow(projectID int64, variable db.Variable, environments []db.Environment) {
 	<tr id={ fmt.Sprintf("variable-row-%d", variable.ID) }>
-		<td class="font-medium">{ variable.Name }</td>
-		<td>
+		<td class="font-medium truncate">{ variable.Name }</td>
+		<td class="truncate">
 			if variable.Value.Valid {
 				{ variable.Value.String }
 			} else {
 				<span class="text-gray-500 italic">(empty)</span>
 			}
 		</td>
-		<td>
+		<td class="truncate">
 			if variable.EnvironmentID.Valid {
 				{ envNameForID(environments, variable.EnvironmentID.Int64) }
 			} else {

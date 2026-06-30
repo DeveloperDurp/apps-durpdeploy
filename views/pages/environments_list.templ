@@ -35,13 +35,13 @@ templ EnvironmentsListFragment(envs []db.Environment) {
 				<a href="/environments/new" class="btn btn-primary">New Environment</a>
 			</div>
 		} else {
-			<table class="table table-zebra w-full">
+			<table class="table table-zebra table-fixed w-full">
 				<thead>
 					<tr>
-						<th>Name</th>
-						<th>Description</th>
-						<th>Tags</th>
-						<th>Actions</th>
+						<th class="w-1/6">Name</th>
+						<th class="w-2/6">Description</th>
+						<th class="w-1/6">Tags</th>
+						<th class="w-2/6">Actions</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -56,9 +56,9 @@ templ EnvironmentsListFragment(envs []db.Environment) {
 
 templ EnvironmentRow(env db.Environment) {
 	<tr>
-		<td>{ env.Name }</td>
-		<td>{ env.Description.String }</td>
-		<td>{ env.Tags.String }</td>
+		<td class="truncate">{ env.Name }</td>
+		<td class="truncate">{ env.Description.String }</td>
+		<td class="truncate">{ env.Tags.String }</td>
 		<td class="flex gap-2">
 			<a href={ templ.SafeURL("/environments/" + strconv.FormatInt(env.ID, 10) + "/edit") } class="btn btn-sm btn-ghost">Edit</a>
 			<button
