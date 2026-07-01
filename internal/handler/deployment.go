@@ -29,7 +29,6 @@ func NewDeploymentHandler(repo *repository.Repository, runner *runner.Deployment
 // of the confirm() dialog when force=true is being used.
 type gateViolation struct {
 	project    db.Project
-	lifecycle  db.Lifecycle
 	reason     string
 	bypassable bool // true = force=true can override; false = hard restriction
 }
@@ -110,73 +109,22 @@ func (h *DeploymentHandler) CreateDeployment(w http.ResponseWriter, r *http.Requ
 // Returns the violation (for the message) and true if blocked. Returns nil, false if
 // the deploy is allowed. Free-floating projects (no lifecycle) always return nil, false.
 func (h *DeploymentHandler) checkPromotionGate(r *http.Request, project db.Project, release db.Release, environmentID int64) (*gateViolation, bool) {
-	if !project.LifecycleID.Valid {
-		return nil, false
-	}
-
-	lc, err := h.repo.Queries.GetLifecycle(r.Context(), project.LifecycleID.Int64)
+	state, err := evaluateGate(r.Context(), h.repo, project, release, environmentID)
 	if err != nil {
-		return nil, false
-	}
-
-	stages, err := h.repo.Queries.ListLifecycleStages(r.Context(), lc.ID)
-	if err != nil {
-		return nil, false
-	}
-
-	idx := -1
-	for i, s := range stages {
-		if s.EnvironmentID == environmentID {
-			idx = i
-			break
-		}
-	}
-	if idx < 0 {
-		env, _ := h.repo.Queries.GetEnvironment(r.Context(), environmentID)
-		envName := "(unknown)"
-		if env.ID != 0 {
-			envName = env.Name
-		}
 		return &gateViolation{
 			project:    project,
-			lifecycle:  lc,
-			reason:     fmt.Sprintf("%s is not part of the lifecycle %q. Projects with a lifecycle can only deploy to their lifecycle stages.", envName, lc.Name),
+			reason:     err.Error(),
 			bypassable: false,
 		}, true
 	}
-
-	if idx == 0 {
+	if state.deployable {
 		return nil, false
 	}
-
-	prev := stages[idx-1]
-	prevEnv, _ := h.repo.Queries.GetEnvironment(r.Context(), prev.EnvironmentID)
-	prevName := "(unknown)"
-	if prevEnv.ID != 0 {
-		prevName = prevEnv.Name
-	}
-
-	dep, err := h.repo.Queries.GetLatestSuccessfulDeploymentForReleaseEnv(r.Context(), db.GetLatestSuccessfulDeploymentForReleaseEnvParams{
-		ReleaseID:     release.ID,
-		EnvironmentID: prev.EnvironmentID,
-	})
-	if err != nil && err != sql.ErrNoRows {
-		return &gateViolation{
-			project:    project,
-			lifecycle:  lc,
-			reason:     fmt.Sprintf("Cannot verify prior deployment to %s: %s", prevName, err.Error()),
-			bypassable: false,
-		}, true
-	}
-	if err == sql.ErrNoRows || dep.ReleaseID == 0 {
-		return &gateViolation{
-			project:    project,
-			lifecycle:  lc,
-			reason:     fmt.Sprintf("%s has not been successfully deployed to %s yet. Bypass with the force option if you know what you are doing.", release.Version, prevName),
-			bypassable: true,
-		}, true
-	}
-	return nil, false
+	return &gateViolation{
+		project:    project,
+		reason:     state.reason,
+		bypassable: state.bypassable,
+	}, true
 }
 
 // renderGateError renders a 422 page that re-displays the releases table with
@@ -187,20 +135,19 @@ func (h *DeploymentHandler) renderGateError(w http.ResponseWriter, r *http.Reque
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	environments, err := h.availableEnvironmentsForProject(r, project)
+	views, err := buildReleaseViews(r.Context(), h.repo, project, releases)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusUnprocessableEntity)
 	if r.Header.Get("HX-Request") == "true" {
-		_ = environmentID
-		if err := pages.ReleasesFragment(project, releases, environments, reason).Render(r.Context(), w); err != nil {
+		if err := pages.ReleasesFragment(project, views, reason).Render(r.Context(), w); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 		return
 	}
-	if err := pages.ReleasesPage(project, releases, environments, reason, r.URL.Path).Render(r.Context(), w); err != nil {
+	if err := pages.ReleasesPage(project, views, reason, r.URL.Path).Render(r.Context(), w); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

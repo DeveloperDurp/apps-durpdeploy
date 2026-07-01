@@ -345,6 +345,67 @@ func TestGate_RedeploySucceeded_StillSucceeds(t *testing.T) {
 	}
 }
 
+func TestReleasesPage_OnlyShowsDeployableEnvsByDefault(t *testing.T) {
+	h := newHarness(t)
+	hc := h.setupProjectWithLifecycle(t, []string{"Alpha", "Beta"})
+	rel := hc.makeRelease(t, "1.0.0", "exit 0")
+
+	resp, err := http.Get(fmt.Sprintf("%s/projects/%d/releases", h.server.URL, hc.project.ID))
+	if err != nil {
+		t.Fatalf("GET: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("status: %d", resp.StatusCode)
+	}
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(resp.Body)
+	body := buf.String()
+
+	// Alpha is deployable (first stage), so it appears as a plain <option>.
+	// Beta is bypassable (needs force), so it appears under the "Needs force" optgroup.
+	if !strings.Contains(body, `>Alpha<`) {
+		t.Errorf("Alpha should appear in env dropdown; body excerpt missing")
+	}
+	if !strings.Contains(body, `>Beta<`) {
+		t.Errorf("Beta should appear in env dropdown; body excerpt missing")
+	}
+	if !strings.Contains(body, `data-gate-group="forceable"`) {
+		t.Errorf("Beta should be in the 'forceable' optgroup; missing data-gate-group")
+	}
+	if !strings.Contains(body, `>Force<`) {
+		t.Errorf("Force checkbox label should be rendered; missing '>Force<'")
+	}
+	_ = rel
+}
+
+func TestReleasesPage_HidesNonLifecycleEnvs(t *testing.T) {
+	h := newHarness(t)
+	hc := h.setupProjectWithLifecycle(t, []string{"Alpha", "Beta"})
+
+	// "Outside" env is not in the lifecycle.
+	h.repo.Queries.CreateEnvironment(context.Background(), db.CreateEnvironmentParams{Name: "Outside"})
+
+	rel := hc.makeRelease(t, "1.0.0", "exit 0")
+
+	resp, err := http.Get(fmt.Sprintf("%s/projects/%d/releases", h.server.URL, hc.project.ID))
+	if err != nil {
+		t.Fatalf("GET: %v", err)
+	}
+	defer resp.Body.Close()
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(resp.Body)
+	body := buf.String()
+
+	if strings.Contains(body, `>Outside<`) {
+		t.Errorf("non-lifecycle env 'Outside' should NOT appear in the dropdown")
+	}
+	if !strings.Contains(body, `>Alpha<`) {
+		t.Errorf("Alpha should appear")
+	}
+	_ = rel
+}
+
 func TestGate_RenderError_ContainsReasonText(t *testing.T) {
 	h := newHarness(t)
 	hc := h.setupProjectWithLifecycle(t, []string{"Alpha", "Beta"})
