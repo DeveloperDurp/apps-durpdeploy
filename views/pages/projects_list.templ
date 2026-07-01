@@ -72,27 +72,38 @@ templ ProjectsListRow(p db.Project, panel LifecyclePanel) {
 	</tr>
 }
 
-// ProjectsListDeployments renders one column slot per env in the project's
-// lifecycle. Each slot is a colored pill containing the version of the
-// latest attempt; the env name sits next to the pill. The pill color encodes
-// the latest attempt's status. Free-floating projects show one slot per
-// env (no lifecycle ordering). Empty projects show a muted "no envs" hint.
+// ProjectsListDeployments renders a mini-table with one column per env.
+// The env name is the column header and the version pill (or em-dash for
+// untouched) sits below. Lifecycle-bound projects show every stage in the
+// lifecycle, including untouched ones, so the user can see the full chain
+// at a glance. Free-floating projects show only envs with at least one
+// deployment. Empty projects show a muted "no envs" hint.
 templ ProjectsListDeployments(panel LifecyclePanel) {
 	if len(panel.Stages) == 0 {
 		<span class="text-gray-500 italic text-sm">No environments</span>
 	} else {
-		<div class="flex flex-wrap gap-x-3 gap-y-1 items-center">
-			for _, s := range panel.Stages {
-				<div class="flex items-center gap-1.5">
-					if s.LatestAttempt == nil {
-						<span class="badge badge-sm bg-base-300 text-base-content border-0 font-mono">—</span>
-					} else {
-						@VersionPill(*s.LatestAttempt, s.AttemptVersion)
+		<table class="table table-xs">
+			<thead>
+				<tr>
+					for _, s := range panel.Stages {
+						<th class="text-xs font-medium text-gray-500 normal-case">{ s.Environment.Name }</th>
 					}
-					<span class="text-xs text-gray-500 truncate max-w-[8rem]">{ s.Environment.Name }</span>
-				</div>
-			}
-		</div>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					for _, s := range panel.Stages {
+						<td>
+							if s.LatestAttempt == nil {
+								<span class="badge badge-sm bg-base-300 text-base-content border-0 font-mono">—</span>
+							} else {
+								@VersionPill(*s.LatestAttempt, s.AttemptVersion)
+							}
+						</td>
+					}
+				</tr>
+			</tbody>
+		</table>
 	}
 }
 

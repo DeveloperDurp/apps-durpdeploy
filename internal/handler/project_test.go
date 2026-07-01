@@ -342,6 +342,39 @@ func TestProjectsList_ShowsPerEnvStatusDots(t *testing.T) {
 	}
 }
 
+// TestProjectsList_LifecycleShowsAllStagesIncludingUntouched verifies that a
+// lifecycle-bound project renders a row for every stage in its lifecycle,
+// even stages that have never been deployed to. The version cell for an
+// untouched stage should render an em-dash placeholder, not be omitted.
+func TestProjectsList_LifecycleShowsAllStagesIncludingUntouched(t *testing.T) {
+	h := newProjectHarness(t)
+	proj := h.makeProject("L")
+	envA := h.makeEnv("L-A")
+	envB := h.makeEnv("L-B")
+	envC := h.makeEnv("L-C")
+	lc := h.makeLifecycle("abc", envA.ID, envB.ID, envC.ID)
+	h.assignLifecycle(proj.ID, lc.ID)
+
+	// Deploy only to L-A. L-B and L-C remain untouched.
+	rel := h.makeRelease(proj.ID, "1.0.0", "exit 0")
+	_, depID := h.postDeploy(rel.ID, envA.ID)
+	h.waitForDeploymentStatus(depID, "succeeded")
+
+	page := h.getProjectsList()
+
+	// All three env names must appear in the lifecycle-bound project's row.
+	for _, name := range []string{"L-A", "L-B", "L-C"} {
+		if !strings.Contains(page, ">"+name+"<") {
+			t.Errorf("lifecycle stage %q must appear in the list, even if untouched", name)
+		}
+	}
+	// The em-dash placeholder appears for untouched envs. Use a class-scoped
+	// search so a stray "—" elsewhere doesn't satisfy the check.
+	if !strings.Contains(page, "bg-base-300") {
+		t.Errorf("untouched envs should render an em-dash placeholder with bg-base-300 styling")
+	}
+}
+
 func (h *projectHarness) getProjectsList() string {
 	h.t.Helper()
 	resp, err := http.Get(h.server.URL + "/projects")
