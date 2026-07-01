@@ -334,6 +334,12 @@ func TestProjectsList_ShowsPerEnvStatusDots(t *testing.T) {
 	if !strings.Contains(page, ">C-env<") {
 		t.Errorf("project C's env 'C-env' should appear")
 	}
+	// Each cell should also show the version of the latest attempt. Project A
+	// deployed v1.0.0 to dev (succeeded) and to prod (failed). Project C
+	// deployed v1.0.0 to C-env.
+	if !strings.Contains(page, "1.0.0") {
+		t.Errorf("version 1.0.0 should appear in the list page (multiple cells)")
+	}
 }
 
 func (h *projectHarness) getProjectsList() string {

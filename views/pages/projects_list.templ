@@ -73,9 +73,10 @@ templ ProjectsListRow(p db.Project, panel LifecyclePanel) {
 }
 
 // ProjectsListDeployments renders one column slot per env in the project's
-// lifecycle, each with the env name and the latest-attempt status dot. Free-
-// floating projects show one slot per env (no lifecycle ordering). Empty
-// projects show a muted "no envs" hint.
+// lifecycle. Each slot is a colored pill containing the version of the
+// latest attempt; the env name sits next to the pill. The pill color encodes
+// the latest attempt's status. Free-floating projects show one slot per
+// env (no lifecycle ordering). Empty projects show a muted "no envs" hint.
 templ ProjectsListDeployments(panel LifecyclePanel) {
 	if len(panel.Stages) == 0 {
 		<span class="text-gray-500 italic text-sm">No environments</span>
@@ -84,15 +85,31 @@ templ ProjectsListDeployments(panel LifecyclePanel) {
 			for _, s := range panel.Stages {
 				<div class="flex items-center gap-1.5">
 					if s.LatestAttempt == nil {
-						<span class="w-2 h-2 rounded-sm bg-base-300"></span>
+						<span class="badge badge-sm bg-base-300 text-base-content border-0 font-mono">—</span>
 					} else {
-						@AttemptDot(*s.LatestAttempt)
+						@VersionPill(*s.LatestAttempt, s.AttemptVersion)
 					}
 					<span class="text-xs text-gray-500 truncate max-w-[8rem]">{ s.Environment.Name }</span>
 				</div>
 			}
 		</div>
 	}
+}
+
+// VersionPill renders a small colored badge containing the version. The
+// color encodes the deployment status; the version is centered inside.
+templ VersionPill(d db.Deployment, version string) {
+	<span
+		class={
+			templ.KV("badge badge-sm font-mono", true),
+			templ.KV("bg-success text-success-content border-0", d.Status == "succeeded"),
+			templ.KV("bg-error text-error-content border-0", d.Status == "failed"),
+			templ.KV("bg-warning text-warning-content border-0", d.Status == "cancelled"),
+			templ.KV("bg-info text-info-content border-0 animate-pulse", d.Status == "running"),
+			templ.KV("bg-base-300 text-base-content border-0", d.Status == "pending" || (d.Status != "succeeded" && d.Status != "failed" && d.Status != "cancelled" && d.Status != "running")),
+		}
+		title={ d.Status }
+	>{ version }</span>
 }
 
 templ ProjectsListPage(projects []db.Project, panels []LifecyclePanel, currentPath string) {
