@@ -30,3 +30,6 @@ SELECT * FROM deployments WHERE release_id = ? AND environment_id = ? AND status
 
 -- name: GetLatestSuccessfulDeploymentForEnv :one
 SELECT * FROM deployments WHERE environment_id = ? AND status = 'succeeded' ORDER BY created_at DESC LIMIT 1;
+
+-- name: ListRecentDeploymentsForEnv :many
+SELECT * FROM deployments WHERE environment_id = ? ORDER BY created_at DESC LIMIT ?;

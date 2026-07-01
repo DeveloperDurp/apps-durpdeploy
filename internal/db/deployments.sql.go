@@ -253,6 +253,47 @@ func (q *Queries) ListRecentDeployments(ctx context.Context, limit int64) ([]Dep
 	return items, nil
 }
 
+const listRecentDeploymentsForEnv = `-- name: ListRecentDeploymentsForEnv :many
+SELECT id, release_id, environment_id, status, started_at, finished_at, created_at, forced FROM deployments WHERE environment_id = ? ORDER BY created_at DESC LIMIT ?
+`
+
+type ListRecentDeploymentsForEnvParams struct {
+	EnvironmentID int64 `json:"environment_id"`
+	Limit         int64 `json:"limit"`
+}
+
+func (q *Queries) ListRecentDeploymentsForEnv(ctx context.Context, arg ListRecentDeploymentsForEnvParams) ([]Deployment, error) {
+	rows, err := q.db.QueryContext(ctx, listRecentDeploymentsForEnv, arg.EnvironmentID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Deployment
+	for rows.Next() {
+		var i Deployment
+		if err := rows.Scan(
+			&i.ID,
+			&i.ReleaseID,
+			&i.EnvironmentID,
+			&i.Status,
+			&i.StartedAt,
+			&i.FinishedAt,
+			&i.CreatedAt,
+			&i.Forced,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateDeployment = `-- name: UpdateDeployment :one
 UPDATE deployments SET release_id = ?, environment_id = ?, status = ?, started_at = ?, finished_at = ? WHERE id = ? RETURNING id, release_id, environment_id, status, started_at, finished_at, created_at, forced
 `

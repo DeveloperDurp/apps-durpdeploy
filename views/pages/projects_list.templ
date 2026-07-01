@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-templ ProjectsList(projects []db.Project) {
+templ ProjectsList(projects []db.Project, panels []LifecyclePanel) {
 	<div id="projects-list">
 		<div class="flex justify-between items-center mb-4">
 			<h1 class="text-2xl font-bold">Projects</h1>
@@ -24,38 +24,14 @@ templ ProjectsList(projects []db.Project) {
 					<thead>
 						<tr>
 							<th class="w-1/4">Name</th>
-							<th class="w-auto">Description</th>
+							<th class="w-1/4">Description</th>
+							<th class="w-1/3">Deployments</th>
 							<th class="w-48">Actions</th>
 						</tr>
 					</thead>
 					<tbody>
-						for _, p := range projects {
-							<tr>
-								<td class="truncate">
-									<a href={ fmt.Sprintf("/projects/%d", p.ID) } class="link link-primary">{ p.Name }</a>
-								</td>
-								<td class="truncate">
-									if p.Description.Valid {
-										{ p.Description.String }
-									} else {
-										<span class="text-gray-500">-</span>
-									}
-								</td>
-								<td class="flex gap-2">
-									<a href={ fmt.Sprintf("/projects/%d/edit", p.ID) } class="btn btn-sm btn-secondary">Edit</a>
-									<button
-										class="btn btn-sm btn-error"
-										hx-delete={ fmt.Sprintf("/projects/%d", p.ID) }
-										hx-target="#projects-list"
-										hx-swap="outerHTML"
-										hx-confirm="Delete this project?"
-										data-toast-success="Project deleted"
-										data-toast-error="Failed to delete project"
-									>
-										Delete
-									</button>
-								</td>
-							</tr>
+						for i, p := range projects {
+							@ProjectsListRow(p, panels[i])
 						}
 					</tbody>
 				</table>
@@ -64,12 +40,67 @@ templ ProjectsList(projects []db.Project) {
 	</div>
 }
 
-templ ProjectsListPage(projects []db.Project, currentPath string) {
+templ ProjectsListRow(p db.Project, panel LifecyclePanel) {
+	<tr>
+		<td class="truncate">
+			<a href={ fmt.Sprintf("/projects/%d", p.ID) } class="link link-primary">{ p.Name }</a>
+		</td>
+		<td class="truncate">
+			if p.Description.Valid {
+				{ p.Description.String }
+			} else {
+				<span class="text-gray-500">-</span>
+			}
+		</td>
+		<td>
+			@ProjectsListDeployments(panel)
+		</td>
+		<td class="flex gap-2">
+			<a href={ fmt.Sprintf("/projects/%d/edit", p.ID) } class="btn btn-sm btn-secondary">Edit</a>
+			<button
+				class="btn btn-sm btn-error"
+				hx-delete={ fmt.Sprintf("/projects/%d", p.ID) }
+				hx-target="#projects-list"
+				hx-swap="outerHTML"
+				hx-confirm="Delete this project?"
+				data-toast-success="Project deleted"
+				data-toast-error="Failed to delete project"
+			>
+				Delete
+			</button>
+		</td>
+	</tr>
+}
+
+// ProjectsListDeployments renders one column slot per env in the project's
+// lifecycle, each with the env name and the latest-attempt status dot. Free-
+// floating projects show one slot per env (no lifecycle ordering). Empty
+// projects show a muted "no envs" hint.
+templ ProjectsListDeployments(panel LifecyclePanel) {
+	if len(panel.Stages) == 0 {
+		<span class="text-gray-500 italic text-sm">No environments</span>
+	} else {
+		<div class="flex flex-wrap gap-x-3 gap-y-1 items-center">
+			for _, s := range panel.Stages {
+				<div class="flex items-center gap-1.5">
+					if s.LatestAttempt == nil {
+						<span class="w-2 h-2 rounded-sm bg-base-300"></span>
+					} else {
+						@AttemptDot(*s.LatestAttempt)
+					}
+					<span class="text-xs text-gray-500 truncate max-w-[8rem]">{ s.Environment.Name }</span>
+				</div>
+			}
+		</div>
+	}
+}
+
+templ ProjectsListPage(projects []db.Project, panels []LifecyclePanel, currentPath string) {
 	@layouts.Base("Projects", currentPath) {
 		@components.Breadcrumbs([]components.Crumb{
 			{Label: "Home", Href: "/"},
 			{Label: "Projects"},
 		})
-		@ProjectsList(projects)
+		@ProjectsList(projects, panels)
 	}
 }
