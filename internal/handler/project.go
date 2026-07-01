@@ -40,8 +40,12 @@ func (h *ProjectHandler) ListProjects(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ProjectHandler) NewProject(w http.ResponseWriter, r *http.Request) {
-	project := db.Project{}
-	if err := pages.ProjectFormPage(project, false, "", r.URL.Path).Render(r.Context(), w); err != nil {
+	lifecycles, err := h.repo.Queries.ListLifecycles(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := pages.ProjectFormPage(db.Project{}, false, "", lifecycles, r.URL.Path).Render(r.Context(), w); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -51,7 +55,8 @@ func (h *ProjectHandler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	desc := r.FormValue("description")
 
 	if name == "" {
-		WriteFormError(w, r, pages.ProjectForm(db.Project{}, false, "Name is required"), pages.ProjectFormPage(db.Project{}, false, "Name is required", r.URL.Path))
+		lifecycles, _ := h.repo.Queries.ListLifecycles(r.Context())
+		WriteFormError(w, r, pages.ProjectForm(db.Project{}, false, "Name is required", lifecycles), pages.ProjectFormPage(db.Project{}, false, "Name is required", lifecycles, r.URL.Path))
 		return
 	}
 
@@ -63,11 +68,18 @@ func (h *ProjectHandler) CreateProject(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	if _, err := h.repo.Queries.CreateProject(r.Context(), params); err != nil {
+	created, err := h.repo.Queries.CreateProject(r.Context(), params)
+	if err != nil {
 		if IsUniqueViolation(err) {
-			WriteFormError(w, r, pages.ProjectForm(db.Project{Name: name}, false, "A project with this name already exists"), pages.ProjectFormPage(db.Project{Name: name}, false, "A project with this name already exists", r.URL.Path))
+			lifecycles, _ := h.repo.Queries.ListLifecycles(r.Context())
+			WriteFormError(w, r, pages.ProjectForm(db.Project{Name: name}, false, "A project with this name already exists", lifecycles), pages.ProjectFormPage(db.Project{Name: name}, false, "A project with this name already exists", lifecycles, r.URL.Path))
 			return
 		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := h.applyLifecycleSelection(r, created.ID); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -98,15 +110,87 @@ func (h *ProjectHandler) GetProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	panel, err := h.buildLifecyclePanel(r, project)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	if r.Header.Get("HX-Request") == "true" {
-		if err := pages.ProjectDetail(project, steps).Render(r.Context(), w); err != nil {
+		if err := pages.ProjectDetail(project, steps, panel).Render(r.Context(), w); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	} else {
-		if err := pages.ProjectDetailPage(project, steps, r.URL.Path).Render(r.Context(), w); err != nil {
+		if err := pages.ProjectDetailPage(project, steps, panel, r.URL.Path).Render(r.Context(), w); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	}
+}
+
+// buildLifecyclePanel returns the lifecycle panel data for a project's detail page.
+// If the project has no lifecycle, returns an empty panel. For each stage, loads the
+// most recent successful deployment (if any) so the panel can show "No deployments"
+// or the deployed version.
+func (h *ProjectHandler) buildLifecyclePanel(r *http.Request, project db.Project) (pages.LifecyclePanel, error) {
+	if !project.LifecycleID.Valid {
+		return pages.LifecyclePanel{}, nil
+	}
+	lc, err := h.repo.Queries.GetLifecycle(r.Context(), project.LifecycleID.Int64)
+	if err != nil {
+		return pages.LifecyclePanel{}, err
+	}
+	stages, err := h.repo.Queries.ListLifecycleStages(r.Context(), lc.ID)
+	if err != nil {
+		return pages.LifecyclePanel{}, err
+	}
+	envsByID, err := h.envsByID(r)
+	if err != nil {
+		return pages.LifecyclePanel{}, err
+	}
+	releasesByID, err := h.releasesByID(r, project.ID)
+	if err != nil {
+		return pages.LifecyclePanel{}, err
+	}
+	views := make([]pages.LifecyclePanelStage, len(stages))
+	for i, s := range stages {
+		v := pages.LifecyclePanelStage{
+			Stage:       s,
+			Environment: envsByID[s.EnvironmentID],
+		}
+		dep, derr := h.repo.Queries.GetLatestSuccessfulDeploymentForEnv(r.Context(), s.EnvironmentID)
+		if derr == nil {
+			if rel, ok := releasesByID[dep.ReleaseID]; ok {
+				v.LatestDeployment = &dep
+				v.LatestVersion = rel.Version
+			}
+		}
+		views[i] = v
+	}
+	return pages.LifecyclePanel{Lifecycle: lc, Stages: views}, nil
+}
+
+func (h *ProjectHandler) envsByID(r *http.Request) (map[int64]db.Environment, error) {
+	envs, err := h.repo.Queries.ListEnvironments(r.Context())
+	if err != nil {
+		return nil, err
+	}
+	m := make(map[int64]db.Environment, len(envs))
+	for _, e := range envs {
+		m[e.ID] = e
+	}
+	return m, nil
+}
+
+func (h *ProjectHandler) releasesByID(r *http.Request, projectID int64) (map[int64]db.Release, error) {
+	rels, err := h.repo.Queries.ListReleasesByProject(r.Context(), projectID)
+	if err != nil {
+		return nil, err
+	}
+	m := make(map[int64]db.Release, len(rels))
+	for _, rel := range rels {
+		m[rel.ID] = rel
+	}
+	return m, nil
 }
 
 func (h *ProjectHandler) EditProject(w http.ResponseWriter, r *http.Request) {
@@ -126,7 +210,13 @@ func (h *ProjectHandler) EditProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := pages.ProjectFormPage(project, true, "", r.URL.Path).Render(r.Context(), w); err != nil {
+	lifecycles, err := h.repo.Queries.ListLifecycles(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := pages.ProjectFormPage(project, true, "", lifecycles, r.URL.Path).Render(r.Context(), w); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -138,12 +228,18 @@ func (h *ProjectHandler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	name := strings.TrimSpace(r.FormValue("name"))
 	desc := r.FormValue("description")
 
 	if name == "" {
 		project := db.Project{ID: id, Name: name}
-		WriteFormError(w, r, pages.ProjectForm(project, true, "Name is required"), pages.ProjectFormPage(project, true, "Name is required", r.URL.Path))
+		lifecycles, _ := h.repo.Queries.ListLifecycles(r.Context())
+		WriteFormError(w, r, pages.ProjectForm(project, true, "Name is required", lifecycles), pages.ProjectFormPage(project, true, "Name is required", lifecycles, r.URL.Path))
 		return
 	}
 
@@ -159,9 +255,15 @@ func (h *ProjectHandler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	if _, err = h.repo.Queries.UpdateProject(r.Context(), params); err != nil {
 		if IsUniqueViolation(err) {
 			project := db.Project{ID: id, Name: name}
-			WriteFormError(w, r, pages.ProjectForm(project, true, "A project with this name already exists"), pages.ProjectFormPage(project, true, "A project with this name already exists", r.URL.Path))
+			lifecycles, _ := h.repo.Queries.ListLifecycles(r.Context())
+			WriteFormError(w, r, pages.ProjectForm(project, true, "A project with this name already exists", lifecycles), pages.ProjectFormPage(project, true, "A project with this name already exists", lifecycles, r.URL.Path))
 			return
 		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := h.applyLifecycleSelection(r, id); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -178,6 +280,23 @@ func (h *ProjectHandler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	} else {
 		http.Redirect(w, r, "/projects", http.StatusSeeOther)
 	}
+}
+
+// applyLifecycleSelection reads the lifecycle_id form field and updates the
+// project's lifecycle accordingly. Empty string clears the lifecycle.
+func (h *ProjectHandler) applyLifecycleSelection(r *http.Request, projectID int64) error {
+	lifecycleStr := strings.TrimSpace(r.FormValue("lifecycle_id"))
+	if lifecycleStr == "" {
+		return h.repo.Queries.ClearProjectLifecycle(r.Context(), projectID)
+	}
+	id, err := strconv.ParseInt(lifecycleStr, 10, 64)
+	if err != nil {
+		return err
+	}
+	return h.repo.Queries.SetProjectLifecycle(r.Context(), db.SetProjectLifecycleParams{
+		LifecycleID: sql.NullInt64{Int64: id, Valid: true},
+		ID:          projectID,
+	})
 }
 
 func (h *ProjectHandler) DeleteProject(w http.ResponseWriter, r *http.Request) {

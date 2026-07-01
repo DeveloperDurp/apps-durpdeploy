@@ -113,18 +113,32 @@ templ ReleaseRow(projectID int64, release db.Release, environments []db.Environm
 			<a href={ fmt.Sprintf("/projects/%d/releases/%d", projectID, release.ID) } class="link link-primary">{ release.Version }</a>
 		</td>
 		<td class="whitespace-nowrap">{ formatUnixTime(release.CreatedAt) }</td>
-		<td class="flex gap-2">
-			<a href={ fmt.Sprintf("/projects/%d/releases/%d", projectID, release.ID) } class="btn btn-sm btn-secondary">View</a>
-		<form method="post" action="/deployments" class="inline">
-			<input type="hidden" name="release_id" value={ strconv.FormatInt(release.ID, 10) }/>
-			<select name="environment_id" class="select select-sm select-bordered mr-2" required>
-				<option value="">Select env</option>
-				for _, env := range environments {
-					<option value={ strconv.FormatInt(env.ID, 10) }>{ env.Name }</option>
+		<td>
+			<div class="flex flex-col gap-2">
+				<form method="post" action="/deployments" class="flex gap-2 items-center">
+					<input type="hidden" name="release_id" value={ strconv.FormatInt(release.ID, 10) }/>
+					<select name="environment_id" class="select select-sm select-bordered" required>
+						<option value="">Select env</option>
+						for _, env := range environments {
+							<option value={ strconv.FormatInt(env.ID, 10) }>{ env.Name }</option>
+						}
+					</select>
+					<button type="submit" class="btn btn-sm btn-accent whitespace-nowrap">Deploy</button>
+				</form>
+				if len(environments) > 0 {
+					<form method="post" action="/deployments" class="flex gap-2 items-center" onsubmit="return confirm('Bypass the promotion gate? This deployment will be marked as forced.')">
+						<input type="hidden" name="release_id" value={ strconv.FormatInt(release.ID, 10) }/>
+						<input type="hidden" name="force" value="true"/>
+						<select name="environment_id" class="select select-sm select-bordered" required>
+							<option value="">Force to env</option>
+							for _, env := range environments {
+								<option value={ strconv.FormatInt(env.ID, 10) }>{ env.Name }</option>
+							}
+						</select>
+						<button type="submit" class="btn btn-sm btn-warning whitespace-nowrap">Force Deploy</button>
+					</form>
 				}
-			</select>
-			<button type="submit" class="btn btn-sm btn-accent">Deploy</button>
-		</form>
+			</div>
 		</td>
 	</tr>
 }

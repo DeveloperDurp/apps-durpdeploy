@@ -46,7 +46,7 @@ func (h *ReleaseHandler) ListReleases(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	environments, err := h.repo.Queries.ListEnvironments(r.Context())
+	environments, err := h.availableEnvironmentsForProject(r, project)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -61,6 +61,33 @@ func (h *ReleaseHandler) ListReleases(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	}
+}
+
+// availableEnvironmentsForProject returns the envs a project may deploy to:
+// lifecycle stages if it has a lifecycle, otherwise all envs.
+func (h *ReleaseHandler) availableEnvironmentsForProject(r *http.Request, project db.Project) ([]db.Environment, error) {
+	all, err := h.repo.Queries.ListEnvironments(r.Context())
+	if err != nil {
+		return nil, err
+	}
+	if !project.LifecycleID.Valid {
+		return all, nil
+	}
+	stageIDs, err := h.repo.Queries.ListLifecycleStageEnvironmentIDs(r.Context(), project.LifecycleID.Int64)
+	if err != nil {
+		return nil, err
+	}
+	idSet := make(map[int64]bool, len(stageIDs))
+	for _, id := range stageIDs {
+		idSet[id] = true
+	}
+	out := make([]db.Environment, 0, len(stageIDs))
+	for _, e := range all {
+		if idSet[e.ID] {
+			out = append(out, e)
+		}
+	}
+	return out, nil
 }
 
 func (h *ReleaseHandler) CreateRelease(w http.ResponseWriter, r *http.Request) {

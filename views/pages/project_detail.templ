@@ -7,7 +7,19 @@ import (
 	"fmt"
 )
 
-templ ProjectDetail(project db.Project, steps []db.Step) {
+type LifecyclePanel struct {
+	Lifecycle db.Lifecycle
+	Stages    []LifecyclePanelStage
+}
+
+type LifecyclePanelStage struct {
+	Stage           db.LifecycleStage
+	Environment     db.Environment
+	LatestDeployment *db.Deployment
+	LatestVersion    string
+}
+
+templ ProjectDetail(project db.Project, steps []db.Step, panel LifecyclePanel) {
 	<div id="project-detail">
 		<div class="flex justify-between items-center mb-4">
 			<h1 class="text-2xl font-bold">{ project.Name }</h1>
@@ -25,6 +37,7 @@ templ ProjectDetail(project db.Project, steps []db.Step) {
 			<a href={ fmt.Sprintf("/projects/%d/variables", project.ID) } class="btn btn-secondary">Variables</a>
 			<a href={ fmt.Sprintf("/projects/%d/releases", project.ID) } class="btn btn-accent">Releases</a>
 		</div>
+		@LifecyclePanelSection(project, panel)
 		<div class="mt-8">
 			<h2 class="text-xl font-bold mb-4">Deployment Process</h2>
 			@components.StepList(steps, project.ID)
@@ -52,13 +65,76 @@ templ ProjectDetail(project db.Project, steps []db.Step) {
 	</div>
 }
 
-templ ProjectDetailPage(project db.Project, steps []db.Step, currentPath string) {
+templ LifecyclePanelSection(project db.Project, panel LifecyclePanel) {
+	<div class="mt-8">
+		<div class="flex justify-between items-center mb-2">
+			<h2 class="text-xl font-bold">Lifecycle</h2>
+			<a href={ fmt.Sprintf("/projects/%d/edit", project.ID) } class="btn btn-ghost btn-sm">Change</a>
+		</div>
+		if panel.Lifecycle.ID == 0 {
+			<div class="card bg-base-200 p-4 text-gray-400">
+				No lifecycle — this project can deploy to any environment without promotion gates.
+			</div>
+		} else {
+			<div class="card bg-base-200 p-4">
+				<div class="text-sm text-gray-400 mb-2">{ panel.Lifecycle.Name }</div>
+				<table class="table table-zebra table-fixed w-full">
+					<thead>
+						<tr>
+							<th class="w-16">Order</th>
+							<th class="w-1/3">Environment</th>
+							<th class="w-1/3">Last Deployed</th>
+							<th class="w-1/4">Status</th>
+						</tr>
+					</thead>
+					<tbody>
+						if len(panel.Stages) == 0 {
+							<tr>
+								<td colspan="4" class="text-gray-500 italic text-center py-4">No stages in this lifecycle.</td>
+							</tr>
+						} else {
+							for i, s := range panel.Stages {
+								@LifecyclePanelRow(i, s)
+							}
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+	</div>
+}
+
+templ LifecyclePanelRow(index int, s LifecyclePanelStage) {
+	<tr>
+		<td>{ fmt.Sprintf("%d", index+1) }</td>
+		<td class="font-medium truncate">{ s.Environment.Name }</td>
+		<td class="truncate">
+			if s.LatestDeployment == nil {
+				<span class="text-gray-500 italic">No deployments</span>
+			} else {
+				if s.LatestDeployment.Forced == 1 {
+					<span class="badge badge-warning mr-1">Forced</span>
+				}
+				{ s.LatestVersion }
+			}
+		</td>
+		<td>
+			if s.LatestDeployment == nil {
+				<span class="badge badge-ghost">empty</span>
+			} else {
+				@StatusBadge(*s.LatestDeployment)
+			}
+		</td>
+	</tr>
+}
+
+templ ProjectDetailPage(project db.Project, steps []db.Step, panel LifecyclePanel, currentPath string) {
 	@layouts.Base(project.Name, currentPath) {
 		@components.Breadcrumbs([]components.Crumb{
 			{Label: "Home", Href: "/"},
 			{Label: "Projects", Href: "/projects"},
 			{Label: project.Name},
 		})
-		@ProjectDetail(project, steps)
+		@ProjectDetail(project, steps, panel)
 	}
 }
