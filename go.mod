@@ -5,7 +5,7 @@ go 1.25.7
 require (
 	github.com/a-h/templ v0.3.1020
 	github.com/go-chi/chi/v5 v5.3.0
-	github.com/pressly/goose/v3 v3.27.1
+	github.com/pressly/goose/v3 v3.27.2
 	modernc.org/sqlite v1.53.0
 )
 
